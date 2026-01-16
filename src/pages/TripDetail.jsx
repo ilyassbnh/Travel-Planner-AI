@@ -1,35 +1,55 @@
-// src/pages/TripDetail.jsx
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchActivities } from '../redux/activitiesSlice';
-import { fetchTrips } from '../redux/tripsSlice'; // Pour retrouver les infos du voyage (titre, budget)
+import { fetchActivities, addActivity } from '../redux/activitiesSlice'; // Import addActivity
+import { fetchTrips } from '../redux/tripsSlice';
 
 const TripDetail = () => {
-  const { id } = useParams(); // On récupère l'ID depuis l'URL (ex: /trip/1)
+  const { id } = useParams();
   const dispatch = useDispatch();
 
-  // 1. Récupérer les infos du voyage actuel (depuis le store trips)
+  // State local pour le formulaire
+  const [formData, setFormData] = useState({
+    name: '',
+    cost: '',
+    category: 'Loisir'
+  });
+
   const trip = useSelector((state) => 
     state.trips.list.find((t) => t.id === id)
   );
 
-  // 2. Récupérer les activités (depuis le store activities)
-  const { list: activities, status } = useSelector((state) => state.activities);
+  const { list: activities } = useSelector((state) => state.activities);
 
-  // Charger les données au montage
   useEffect(() => {
-    // Si on a refresh la page et perdu les trips, on les recharge
     if (!trip) {
       dispatch(fetchTrips());
     }
-    // On charge les activités de ce voyage précis
     dispatch(fetchActivities(id));
   }, [dispatch, id, trip]);
 
-  if (!trip) return <div>Chargement du voyage...</div>;
+  // Fonction pour soumettre le formulaire
+  const handleAdd = (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.cost) return;
 
-  // Calcul du budget dépensé
+    const newActivity = {
+      tripId: id, // Important : on lie l'activité à CE voyage
+      name: formData.name,
+      cost: Number(formData.cost),
+      category: formData.category,
+      date: new Date().toISOString() // Date d'aujourd'hui
+    };
+
+    // On envoie à Redux (qui envoie à l'API)
+    dispatch(addActivity(newActivity));
+    
+    // Reset du formulaire
+    setFormData({ name: '', cost: '', category: 'Loisir' });
+  };
+
+  if (!trip) return <div>Chargement...</div>;
+
   const totalSpent = activities.reduce((acc, curr) => acc + Number(curr.cost), 0);
   const remainingBudget = trip.budget - totalSpent;
 
@@ -37,15 +57,15 @@ const TripDetail = () => {
     <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
       <Link to="/" style={{ color: '#666' }}>← Retour au Dashboard</Link>
       
-      {/* Header Voyage */}
+      {/* Header */}
       <div style={{ marginTop: '20px', borderBottom: '1px solid #ddd', paddingBottom: '20px' }}>
         <h1 style={{ marginBottom: '10px' }}>{trip.destination}</h1>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>📅 Du {new Date(trip.startDate).toLocaleDateString()} au {new Date(trip.endDate).toLocaleDateString()}</span>
+          <span>📅 {new Date(trip.startDate).toLocaleDateString()}</span>
           <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>Budget: {trip.budget} €</span>
         </div>
 
-        {/* JAUGE DE BUDGET (Feature Clé) */}
+        {/* Jauge */}
         <div style={{ marginTop: '15px', background: '#eee', height: '20px', borderRadius: '10px', overflow: 'hidden' }}>
           <div style={{ 
             width: `${Math.min((totalSpent / trip.budget) * 100, 100)}%`, 
@@ -54,24 +74,54 @@ const TripDetail = () => {
             transition: 'width 0.5s ease'
           }}></div>
         </div>
-        <p>Reste : <strong>{remainingBudget} €</strong></p>
+        <p>Reste : <strong>{remainingBudget.toFixed(2)} €</strong></p>
       </div>
 
-      {/* Liste des Activités */}
+      {/* --- NOUVEAU : FORMULAIRE D'AJOUT --- */}
+      <div style={{ background: '#f9f9f9', padding: '15px', borderRadius: '8px', marginTop: '20px' }}>
+        <h3>➕ Ajouter une dépense</h3>
+        <form onSubmit={handleAdd} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <input 
+            type="text" 
+            placeholder="Nom (ex: Restaurant)" 
+            value={formData.name}
+            onChange={(e) => setFormData({...formData, name: e.target.value})}
+            style={{ padding: '8px', flex: 1 }}
+          />
+          <input 
+            type="number" 
+            placeholder="Prix (€)" 
+            value={formData.cost}
+            onChange={(e) => setFormData({...formData, cost: e.target.value})}
+            style={{ padding: '8px', width: '100px' }}
+          />
+          <select 
+            value={formData.category}
+            onChange={(e) => setFormData({...formData, category: e.target.value})}
+            style={{ padding: '8px' }}
+          >
+            <option value="Loisir">Loisir</option>
+            <option value="Nourriture">Nourriture</option>
+            <option value="Transport">Transport</option>
+            <option value="Logement">Logement</option>
+          </select>
+          <button type="submit" style={{ padding: '8px 15px', background: '#0066CC', color: 'white', border: 'none', cursor: 'pointer', borderRadius: '4px' }}>
+            Ajouter
+          </button>
+        </form>
+      </div>
+
+      {/* Liste */}
       <div style={{ marginTop: '30px' }}>
-        <h2>Activités prévues</h2>
-        {activities.length === 0 ? (
-          <p style={{ fontStyle: 'italic', color: '#888' }}>Aucune activité pour le moment.</p>
-        ) : (
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {activities.map((act) => (
-              <li key={act.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #eee' }}>
-                <span>{act.name} ({act.category})</span>
-                <span style={{ fontWeight: 'bold' }}>-{act.cost} €</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <h2>Dépenses</h2>
+        <ul style={{ listStyle: 'none', padding: 0 }}>
+          {activities.map((act) => (
+            <li key={act.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #eee' }}>
+              <span>{act.name} <small style={{color: '#888'}}>({act.category})</small></span>
+              <span style={{ fontWeight: 'bold' }}>-{act.cost} €</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );
