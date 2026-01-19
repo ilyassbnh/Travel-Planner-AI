@@ -3,61 +3,133 @@ import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchTrips } from '../redux/tripsSlice';
 import { Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { FaPlus, FaPlane, FaCalendarAlt, FaMoneyBillWave } from 'react-icons/fa';
 
 const Dashboard = () => {
     const dispatch = useDispatch();
-
-    // On récupère les données depuis le Store Redux
     const { list, status, error } = useSelector((state) => state.trips);
 
-    // Au chargement de la page, on lance l'appel API
     useEffect(() => {
         if (status === 'idle') {
             dispatch(fetchTrips());
         }
     }, [status, dispatch]);
 
-    if (status === 'loading') return <div style={{ padding: "20px" }}>Chargement des voyages...</div>;
-    if (status === 'failed') return <div style={{ color: "red" }}>Erreur: {error}</div>;
+    const containerVariants = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: {
+                staggerChildren: 0.1
+            }
+        }
+    };
+
+    const itemVariants = {
+        hidden: { y: 20, opacity: 0 },
+        visible: {
+            y: 0,
+            opacity: 1,
+            transition: {
+                type: "spring",
+                stiffness: 100
+            }
+        }
+    };
+
+    if (status === 'loading') {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></div>
+            </div>
+        );
+    }
+
+    if (status === 'failed') {
+        return (
+            <div className="p-4 bg-red-500/10 border border-red-500 rounded-lg text-red-500 text-center">
+                Erreur: {error}
+            </div>
+        );
+    }
 
     return (
-        <div style={{ padding: '2rem' }}>
-            <h1>Mon Tableau de Bord ✈️</h1>
-            <Link to="/create" style={{ padding: '10px 20px', background: 'green', color: 'white', textDecoration: 'none', borderRadius: '5px' }}>
-                + Nouveau Voyage
-            </Link>
-            {/* Grille des cartes */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px', marginTop: '20px' }}>
+        <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={containerVariants}
+            className="space-y-8"
+        >
+            <div className="flex justify-between items-center">
+                <div>
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
+                        Mon Tableau de Bord
+                    </h1>
+                    <p className="text-text-dim mt-2">Gérez vos prochaines aventures</p>
+                </div>
 
-                {list.map((trip) => (
-                    <div key={trip.id} style={{ border: '1px solid #ccc', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-
-                        {/* Image de couverture */}
-                        <img
-                            src={trip.coverImage}
-                            alt={trip.destination}
-                            style={{ width: '100%', height: '150px', objectFit: 'cover' }}
-                        />
-
-                        <div style={{ padding: '15px' }}>
-                            <h3>{trip.destination}</h3>
-                            <p style={{ color: '#666' }}>
-                                📅 {new Date(trip.startDate).toLocaleDateString()}
-                            </p>
-                            <p style={{ fontWeight: 'bold', color: '#0066CC' }}>
-                                💰 {trip.budget} €
-                            </p>
-
-                            {/* Lien vers le détail (on créera cette page après) */}
-                            <Link to={`/trip/${trip.id}`} style={{ display: 'block', marginTop: '10px', textDecoration: 'none', color: 'blue' }}>
-                                Voir le planning →
-                            </Link>
-                        </div>
-                    </div>
-                ))}
-
+                <Link to="/create" className="btn-primary group">
+                    <FaPlus className="group-hover:rotate-90 transition-transform duration-300" />
+                    <span>Nouveau Voyage</span>
+                </Link>
             </div>
-        </div>
+
+            {/* Grille des cartes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {list.map((trip) => (
+                    <motion.div
+                        key={trip.id}
+                        variants={itemVariants}
+                        className="card group cursor-pointer h-full flex flex-col"
+                    >
+                        {/* Image de couverture */}
+                        <div className="relative h-48 -mx-6 -mt-6 mb-6 overflow-hidden rounded-t-xl">
+                            <img
+                                src={trip.coverImage || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=2070&auto=format&fit=crop'}
+                                alt={trip.destination}
+                                className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-secondary to-transparent opacity-60"></div>
+                            <div className="absolute bottom-4 left-4">
+                                <h3 className="text-2xl font-bold text-white drop-shadow-lg">{trip.destination}</h3>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 flex-grow">
+                            <div className="flex items-center text-text-dim space-x-2">
+                                <FaCalendarAlt className="text-accent" />
+                                <span>{new Date(trip.startDate).toLocaleDateString()}</span>
+                            </div>
+                            <div className="flex items-center text-text-dim space-x-2">
+                                <FaMoneyBillWave className="text-green-400" />
+                                <span>{trip.budget} €</span>
+                            </div>
+                        </div>
+
+                        <Link
+                            to={`/trip/${trip.id}`}
+                            className="mt-6 w-full py-2 bg-slate-700/50 hover:bg-slate-700 rounded-lg text-center text-sm font-medium text-accent transition-colors flex justify-center items-center gap-2 group-hover:gap-3"
+                        >
+                            Voir le planning <span className="transition-all">→</span>
+                        </Link>
+                    </motion.div>
+                ))}
+            </div>
+
+            {list.length === 0 && (
+                <motion.div
+                    variants={itemVariants}
+                    className="text-center py-20 bg-secondary/30 rounded-2xl border border-dashed border-slate-700"
+                >
+                    <FaPlane className="mx-auto text-6xl text-slate-600 mb-4" />
+                    <p className="text-xl text-text-dim">Aucun voyage pour le moment.</p>
+                    <Link to="/create" className="text-accent hover:underline mt-2 inline-block">
+                        Commencez par en créer un !
+                    </Link>
+                </motion.div>
+            )}
+        </motion.div>
     );
 };
 
