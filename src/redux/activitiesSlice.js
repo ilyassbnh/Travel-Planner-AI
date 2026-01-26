@@ -30,6 +30,32 @@ export const addActivity = createAsyncThunk(
   }
 );
 
+// 3. THUNK : Supprimer une activité
+export const deleteActivity = createAsyncThunk(
+  'activities/deleteActivity',
+  async (activityId, { rejectWithValue }) => {
+    try {
+      await api.delete(`/activities/${activityId}`);
+      return activityId; // On retourne l'ID pour le supprimer du state local
+    } catch (error) {
+      return rejectWithValue(error.response?.data || 'Erreur suppression');
+    }
+  }
+);
+
+// 4. THUNK : Mettre à jour une activité
+export const updateActivity = createAsyncThunk(
+  'activities/updateActivity',
+  async (activity, { rejectWithValue }) => {
+    try {
+      const response = await api.put(`/activities/${activity.id}`, activity);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || 'Erreur mise à jour');
+    }
+  }
+);
+
 const activitiesSlice = createSlice({
   name: 'activities',
   initialState: {
@@ -52,9 +78,20 @@ const activitiesSlice = createSlice({
         state.status = 'failed';
         state.error = action.payload;
       })
-      // Add Cases (Quand on ajoute une activité, on la pousse direct dans la liste)
+      // Add Cases
       .addCase(addActivity.fulfilled, (state, action) => {
         state.list.push(action.payload);
+      })
+      // Delete Cases
+      .addCase(deleteActivity.fulfilled, (state, action) => {
+        state.list = state.list.filter(act => act.id !== action.payload);
+      })
+      // Update Cases
+      .addCase(updateActivity.fulfilled, (state, action) => {
+        const index = state.list.findIndex(act => act.id === action.payload.id);
+        if (index !== -1) {
+          state.list[index] = action.payload;
+        }
       });
   },
 });
