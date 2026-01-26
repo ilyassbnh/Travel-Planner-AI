@@ -1,14 +1,16 @@
+
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchActivities, addActivity, deleteActivity, updateActivity } from '../redux/activitiesSlice';
-import { fetchTrips, updateTrip } from '../redux/tripsSlice';
+import { fetchTrips, updateTrip, deleteTrip } from '../redux/tripsSlice';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaArrowLeft, FaPlus, FaMoneyBillWave, FaUtensils, FaTicketAlt, FaHotel, FaBus, FaEdit, FaTrash, FaCheck, FaTimes, FaCamera } from 'react-icons/fa';
+import { FaArrowLeft, FaPlus, FaMoneyBillWave, FaUtensils, FaTicketAlt, FaHotel, FaBus, FaEdit, FaTrash, FaCheck, FaTimes, FaCamera, FaCalendarAlt, FaMapMarkerAlt } from 'react-icons/fa';
 import ImageWithFallback from '../components/ImageWithFallback';
 
 const TripDetail = () => {
     const { id } = useParams();
+    const navigate = useNavigate();
     const dispatch = useDispatch();
 
     const [formData, setFormData] = useState({
@@ -34,6 +36,10 @@ const TripDetail = () => {
     // Image Editing State
     const [isEditingImage, setIsEditingImage] = useState(false);
     const [imageUrlInput, setImageUrlInput] = useState('');
+
+    // Trip Details Editing State
+    const [isEditingDetails, setIsEditingDetails] = useState(false);
+    const [detailsForm, setDetailsForm] = useState({ destination: '', startDate: '', endDate: '', description: '' });
 
     useEffect(() => {
         if (!trip) {
@@ -95,6 +101,32 @@ const TripDetail = () => {
         setEditingActivityId(null);
     };
 
+    const handleDeleteTrip = () => {
+        if (confirm('Êtes-vous sûr de vouloir supprimer ce voyage ? Cette action est irréversible.')) {
+            dispatch(deleteTrip(id)).then(() => {
+                navigate('/');
+            });
+        }
+    };
+
+    const openDetailsEdit = () => {
+        setDetailsForm({
+            destination: trip.destination,
+            startDate: trip.startDate ? new Date(trip.startDate).toISOString().split('T')[0] : '',
+            endDate: trip.endDate ? new Date(trip.endDate).toISOString().split('T')[0] : '',
+            description: trip.description || ''
+        });
+        setIsEditingDetails(true);
+    };
+
+    const saveDetailsUpdate = () => {
+        dispatch(updateTrip({
+            id: trip.id,
+            ...detailsForm
+        }));
+        setIsEditingDetails(false);
+    };
+
     if (!trip) return (
         <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></div>
@@ -121,9 +153,25 @@ const TripDetail = () => {
             exit={{ opacity: 0 }}
             className="max-w-4xl mx-auto pb-10"
         >
-            <Link to="/" className="inline-flex items-center gap-2 text-text-dim hover:text-accent transition-colors mb-6">
-                <FaArrowLeft /> Retour au Dashboard
-            </Link>
+            <div className="flex justify-between items-center mb-6">
+                <Link to="/" className="inline-flex items-center gap-2 text-text-dim hover:text-accent transition-colors">
+                    <FaArrowLeft /> Retour au Dashboard
+                </Link>
+                <div className="flex gap-2">
+                    <button
+                        onClick={openDetailsEdit}
+                        className="px-4 py-2 bg-slate-800 text-text-light hover:bg-slate-700 rounded-lg text-sm flex items-center gap-2 transition-colors border border-white/10"
+                    >
+                        <FaEdit /> Modifier Infos
+                    </button>
+                    <button
+                        onClick={handleDeleteTrip}
+                        className="px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg text-sm flex items-center gap-2 transition-colors border border-red-500/20"
+                    >
+                        <FaTrash /> Supprimer Voyage
+                    </button>
+                </div>
+            </div>
 
             {/* Header / Banner */}
             <div className="relative rounded-2xl overflow-hidden mb-8 shadow-2xl group">
@@ -146,6 +194,69 @@ const TripDetail = () => {
                 >
                     <FaCamera size={18} />
                 </button>
+
+                {/* Edit Details Modal */}
+                {isEditingDetails && (
+                    <div className="absolute inset-x-0 top-0 z-50 bg-slate-900 p-8 border-b border-white/10 shadow-2xl">
+                        <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                            <FaEdit className="text-accent" /> Modifier les informations
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div className="space-y-2">
+                                <label className="text-sm text-text-dim">Destination</label>
+                                <div className="relative">
+                                    <FaMapMarkerAlt className="absolute left-3 top-3 text-slate-400" />
+                                    <input
+                                        type="text"
+                                        value={detailsForm.destination}
+                                        onChange={(e) => setDetailsForm({ ...detailsForm, destination: e.target.value })}
+                                        className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 pl-10 pr-4 text-white focus:ring-2 focus:ring-accent outline-none"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm text-text-dim">Dates</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <input
+                                        type="date"
+                                        value={detailsForm.startDate}
+                                        onChange={(e) => setDetailsForm({ ...detailsForm, startDate: e.target.value })}
+                                        className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-accent outline-none"
+                                    />
+                                    <input
+                                        type="date"
+                                        value={detailsForm.endDate}
+                                        onChange={(e) => setDetailsForm({ ...detailsForm, endDate: e.target.value })}
+                                        className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-accent outline-none"
+                                    />
+                                </div>
+                            </div>
+                            <div className="md:col-span-2 space-y-2">
+                                <label className="text-sm text-text-dim">Description</label>
+                                <textarea
+                                    rows="3"
+                                    value={detailsForm.description}
+                                    onChange={(e) => setDetailsForm({ ...detailsForm, description: e.target.value })}
+                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-accent outline-none resize-none"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex gap-4 justify-end">
+                            <button
+                                onClick={() => setIsEditingDetails(false)}
+                                className="px-4 py-2 text-text-dim hover:text-white transition-colors"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={saveDetailsUpdate}
+                                className="btn-primary px-6"
+                            >
+                                Sauvegarder
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* Edit Image Modal/Input Overlay */}
                 {isEditingImage && (
@@ -257,14 +368,14 @@ const TripDetail = () => {
                         <div className="relative h-4 bg-slate-700 rounded-full overflow-hidden mb-2">
                             <motion.div
                                 initial={{ width: 0 }}
-                                animate={{ width: `${progress}%` }}
+                                animate={{ width: `${progress}% ` }}
                                 transition={{ duration: 1, ease: "easeOut" }}
-                                className={`absolute top-0 left-0 h-full ${remainingBudget < 0 ? 'bg-red-500' : 'bg-gradient-to-r from-green-500 to-emerald-400'}`}
+                                className={`absolute top - 0 left - 0 h - full ${remainingBudget < 0 ? 'bg-red-500' : 'bg-gradient-to-r from-green-500 to-emerald-400'} `}
                             />
                         </div>
                         <div className="flex justify-between text-sm">
                             <span className="text-text-dim">Dépensé: {totalSpent} €</span>
-                            <span className={`font-bold ${remainingBudget < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                            <span className={`font - bold ${remainingBudget < 0 ? 'text-red-400' : 'text-green-400'} `}>
                                 Reste: {remainingBudget.toFixed(2)} €
                             </span>
                         </div>
