@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../services/api';
 
+// 1. THUNK : Add Trip
 export const addTrip = createAsyncThunk(
     'trips/addTrip',
     async (newTrip, { rejectWithValue }) => {
@@ -12,12 +13,12 @@ export const addTrip = createAsyncThunk(
         }
     }
 );
-// 1. THUNK : Action asynchrone pour récupérer les voyages depuis l'API
+
+// 2. THUNK : Fetch Trips
 export const fetchTrips = createAsyncThunk(
     'trips/fetchTrips',
     async (_, { rejectWithValue }) => {
         try {
-            // Axios va faire : https://...mockapi.io/trips
             const response = await api.get('/trips');
             return response.data;
         } catch (error) {
@@ -39,47 +40,58 @@ export const updateTrip = createAsyncThunk(
     }
 );
 
-// 2. SLICE : Gestion de l'état (chargement, succès, erreur)
+// 4. THUNK: Delete trip
+export const deleteTrip = createAsyncThunk(
+    'trips/deleteTrip',
+    async (id, { rejectWithValue }) => {
+        try {
+            await api.delete(`/trips/${id}`);
+            return id;
+        } catch (error) {
+            return rejectWithValue(error.response?.data || 'Erreur suppression voyage');
+        }
+    }
+);
+
+// SLICE
 const tripsSlice = createSlice({
     name: 'trips',
     initialState: {
-        list: [],        // La liste des voyages
-        status: 'idle',  // 'idle' | 'loading' | 'succeeded' | 'failed'
+        list: [],
+        status: 'idle',
         error: null,
     },
-    reducers: {
-        // Ici on mettra les actions synchrones (ex: filtrer) plus tard
-    },
+    reducers: {},
     extraReducers: (builder) => {
         builder
-            // Cas : Chargement en cours
+            // Fetch
             .addCase(fetchTrips.pending, (state) => {
                 state.status = 'loading';
             })
-            // Cas : Succès (On a reçu les données)
             .addCase(fetchTrips.fulfilled, (state, action) => {
                 state.status = 'succeeded';
-                state.list = action.payload; // On remplit la liste !
+                state.list = action.payload;
             })
-            // Cas : Erreur
             .addCase(fetchTrips.rejected, (state, action) => {
                 state.status = 'failed';
                 state.error = action.payload;
             })
-            // AJOUTER CECI :
+            // Add
             .addCase(addTrip.fulfilled, (state, action) => {
-                // On ajoute le nouveau voyage à la liste locale (pas besoin de recharger la page)
                 state.list.push(action.payload);
             })
-            // Update Trip (Generic)
+            // Update
             .addCase(updateTrip.fulfilled, (state, action) => {
                 const index = state.list.findIndex(t => t.id === action.payload.id);
                 if (index !== -1) {
                     state.list[index] = action.payload;
                 }
+            })
+            // Delete
+            .addCase(deleteTrip.fulfilled, (state, action) => {
+                state.list = state.list.filter(t => t.id !== action.payload);
             });
     },
 });
-
 
 export default tripsSlice.reducer;
