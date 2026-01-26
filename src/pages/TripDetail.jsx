@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchActivities, addActivity, deleteActivity, updateActivity } from '../redux/activitiesSlice';
-import { fetchTrips, updateTripBudget } from '../redux/tripsSlice';
+import { fetchTrips, updateTrip } from '../redux/tripsSlice';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaArrowLeft, FaPlus, FaMoneyBillWave, FaUtensils, FaTicketAlt, FaHotel, FaBus, FaEdit, FaTrash, FaCheck, FaTimes } from 'react-icons/fa';
+import { FaArrowLeft, FaPlus, FaMoneyBillWave, FaUtensils, FaTicketAlt, FaHotel, FaBus, FaEdit, FaTrash, FaCheck, FaTimes, FaCamera } from 'react-icons/fa';
+import ImageWithFallback from '../components/ImageWithFallback';
 
 const TripDetail = () => {
     const { id } = useParams();
@@ -29,6 +30,10 @@ const TripDetail = () => {
     // Activity Editing State
     const [editingActivityId, setEditingActivityId] = useState(null);
     const [editActivityForm, setEditActivityForm] = useState({ name: '', cost: '', category: '' });
+
+    // Image Editing State
+    const [isEditingImage, setIsEditingImage] = useState(false);
+    const [imageUrlInput, setImageUrlInput] = useState('');
 
     useEffect(() => {
         if (!trip) {
@@ -55,8 +60,15 @@ const TripDetail = () => {
 
     const handleUpdateBudget = () => {
         if (!budgetInput || parseFloat(budgetInput) < 0) return;
-        dispatch(updateTripBudget({ id: trip.id, budget: parseFloat(budgetInput) }));
+        dispatch(updateTrip({ id: trip.id, budget: parseFloat(budgetInput) }));
         setIsEditingBudget(false);
+    };
+
+    const handleUpdateImage = () => {
+        if (imageUrlInput) {
+            dispatch(updateTrip({ id: trip.id, coverImage: imageUrlInput }));
+        }
+        setIsEditingImage(false);
     };
 
     const handleDeleteActivity = (activityId) => {
@@ -114,13 +126,58 @@ const TripDetail = () => {
             </Link>
 
             {/* Header / Banner */}
-            <div className="relative rounded-2xl overflow-hidden mb-8 shadow-2xl">
-                <div className="absolute inset-0 bg-slate-900/60 z-10"></div>
-                <img
-                    src={trip.coverImage || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1'}
+            <div className="relative rounded-2xl overflow-hidden mb-8 shadow-2xl group">
+                <div className="absolute inset-0 bg-slate-900/60 z-10 transition-opacity duration-300 group-hover:bg-slate-900/40"></div>
+                <ImageWithFallback
+                    src={trip.coverImage}
                     alt={trip.destination}
+                    fallbackText={trip.destination}
                     className="w-full h-64 object-cover"
                 />
+
+                {/* Edit Image Button */}
+                <button
+                    onClick={() => {
+                        setImageUrlInput(trip.coverImage || '');
+                        setIsEditingImage(true);
+                    }}
+                    className="absolute top-4 right-4 z-30 p-2 bg-black/50 hover:bg-black/70 rounded-full text-white/80 hover:text-white transition-all opacity-0 group-hover:opacity-100"
+                    title="Modifier l'image"
+                >
+                    <FaCamera size={18} />
+                </button>
+
+                {/* Edit Image Modal/Input Overlay */}
+                {isEditingImage && (
+                    <div className="absolute inset-0 z-40 bg-slate-900/90 flex flex-col items-center justify-center p-8 backdrop-blur-sm">
+                        <h3 className="text-xl font-bold text-white mb-4">Modifier l'image de couverture</h3>
+                        <div className="w-full max-w-md space-y-4">
+                            <input
+                                type="url"
+                                placeholder="https://..."
+                                value={imageUrlInput}
+                                onChange={(e) => setImageUrlInput(e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-accent outline-none"
+                                autoFocus
+                            />
+                            <div className="flex gap-4 justify-end">
+                                <button
+                                    onClick={() => setIsEditingImage(false)}
+                                    className="px-4 py-2 text-text-dim hover:text-white transition-colors"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    onClick={handleUpdateImage}
+                                    className="btn-primary"
+                                >
+                                    Sauvegarder
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 <div className="absolute bottom-0 left-0 p-8 z-20 w-full">
                     <motion.h1
                         initial={{ y: 20, opacity: 0 }}

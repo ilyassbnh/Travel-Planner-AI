@@ -26,15 +26,15 @@ export const fetchTrips = createAsyncThunk(
     }
 );
 
-// 3. THUNK: Updates trip budget
-export const updateTripBudget = createAsyncThunk(
-    'trips/updateTripBudget',
-    async ({ id, budget }, { rejectWithValue }) => {
+// 3. THUNK: Updates trip details (generic)
+export const updateTrip = createAsyncThunk(
+    'trips/updateTrip',
+    async ({ id, ...updates }, { rejectWithValue }) => {
         try {
-            const response = await api.put(`/trips/${id}`, { budget });
+            const response = await api.put(`/trips/${id}`, updates);
             return response.data;
         } catch (error) {
-            return rejectWithValue(error.response?.data || 'Erreur mise à jour budget');
+            return rejectWithValue(error.response?.data || 'Erreur mise à jour voyage');
         }
     }
 );
@@ -71,8 +71,8 @@ const tripsSlice = createSlice({
                 // On ajoute le nouveau voyage à la liste locale (pas besoin de recharger la page)
                 state.list.push(action.payload);
             })
-            // Update Budget
-            .addCase(updateTripBudget.fulfilled, (state, action) => {
+            // Update Trip (Generic)
+            .addCase(updateTrip.fulfilled, (state, action) => {
                 const index = state.list.findIndex(t => t.id === action.payload.id);
                 if (index !== -1) {
                     state.list[index] = action.payload;
