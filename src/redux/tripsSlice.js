@@ -26,6 +26,19 @@ export const fetchTrips = createAsyncThunk(
     }
 );
 
+// 3. THUNK: Updates trip budget
+export const updateTripBudget = createAsyncThunk(
+    'trips/updateTripBudget',
+    async ({ id, budget }, { rejectWithValue }) => {
+        try {
+            const response = await api.put(`/trips/${id}`, { budget });
+            return response.data;
+        } catch (error) {
+            return rejectWithValue(error.response?.data || 'Erreur mise à jour budget');
+        }
+    }
+);
+
 // 2. SLICE : Gestion de l'état (chargement, succès, erreur)
 const tripsSlice = createSlice({
     name: 'trips',
@@ -57,6 +70,13 @@ const tripsSlice = createSlice({
             .addCase(addTrip.fulfilled, (state, action) => {
                 // On ajoute le nouveau voyage à la liste locale (pas besoin de recharger la page)
                 state.list.push(action.payload);
+            })
+            // Update Budget
+            .addCase(updateTripBudget.fulfilled, (state, action) => {
+                const index = state.list.findIndex(t => t.id === action.payload.id);
+                if (index !== -1) {
+                    state.list[index] = action.payload;
+                }
             });
     },
 });
