@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { addTrip } from '../redux/tripsSlice';
+import { generateTripDescription } from '../services/aiService';
+
 import { motion } from 'framer-motion';
 import { FaPaperPlane, FaMagic, FaCalendarAlt, FaMapMarkerAlt, FaImage, FaEuroSign } from 'react-icons/fa';
 
@@ -19,7 +21,7 @@ const CreateTrip = () => {
         description: ''
     });
 
-    const handleGenerateAI = () => {
+    const handleGenerateAI = async () => {
         if (!formData.destination) {
             alert("Veuillez d'abord entrer une destination !");
             return;
@@ -27,13 +29,15 @@ const CreateTrip = () => {
 
         setIsGenerating(true);
 
-        setTimeout(() => {
-            const city = formData.destination;
-            const aiText = `Préparez-vous à découvrir ${city} ! Cette destination offre un mélange parfait de culture et de détente. Ne manquez pas les spécialités locales et les points de vue panoramiques. Ce voyage promet d'être inoubliable avec un budget maîtrisé de ${formData.budget || '...'} €.`;
-
+        try {
+            const aiText = await generateTripDescription(formData.destination, formData.budget || 1000);
             setFormData((prev) => ({ ...prev, description: aiText }));
+        } catch (error) {
+            console.error(error);
+            alert("Erreur lors de la génération avec l'IA");
+        } finally {
             setIsGenerating(false);
-        }, 2000);
+        }
     };
 
     const handleSubmit = (e) => {
@@ -159,8 +163,8 @@ const CreateTrip = () => {
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${isGenerating
-                                        ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-                                        : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30'
+                                    ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                                    : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30'
                                     }`}
                             >
                                 {isGenerating ? (
