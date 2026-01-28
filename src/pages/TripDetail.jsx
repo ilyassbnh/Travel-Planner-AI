@@ -4,6 +4,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchActivities, addActivity, deleteActivity, updateActivity } from '../redux/activitiesSlice';
 import { fetchTrips, updateTrip, deleteTrip } from '../redux/tripsSlice';
+import { generateTripDescription } from '../services/aiService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaArrowLeft, FaPlus, FaMoneyBillWave, FaUtensils, FaTicketAlt, FaHotel, FaBus, FaEdit, FaTrash, FaCheck, FaTimes, FaCamera, FaCalendarAlt, FaMapMarkerAlt } from 'react-icons/fa';
 import ImageWithFallback from '../components/ImageWithFallback';
@@ -64,9 +65,20 @@ const TripDetail = () => {
         setFormData({ name: '', cost: '', category: 'Loisir' });
     };
 
-    const handleUpdateBudget = () => {
+    const handleUpdateBudget = async () => {
         if (!budgetInput || parseFloat(budgetInput) < 0) return;
-        dispatch(updateTrip({ id: trip.id, budget: parseFloat(budgetInput) }));
+
+        let updates = { id: trip.id, budget: parseFloat(budgetInput) };
+
+        // Optionnel : Régénérer la description si le budget change
+        try {
+            const newDesc = await generateTripDescription(trip.destination, parseFloat(budgetInput));
+            updates.description = newDesc;
+        } catch (error) {
+            console.error("AI Update Failed", error);
+        }
+
+        dispatch(updateTrip(updates));
         setIsEditingBudget(false);
     };
 
@@ -79,7 +91,12 @@ const TripDetail = () => {
 
     const handleDeleteActivity = (activityId) => {
         if (confirm('Voulez-vous vraiment supprimer cette activité ?')) {
-            dispatch(deleteActivity(activityId));
+            dispatch(deleteActivity(activityId))
+                .unwrap()
+                .catch((err) => {
+                    alert(`Erreur lors de la suppression : ${err}`);
+                    console.error('Delete failed:', err);
+                });
         }
     };
 
@@ -119,10 +136,31 @@ const TripDetail = () => {
         setIsEditingDetails(true);
     };
 
-    const saveDetailsUpdate = () => {
+    const handleGenerateDescription = async () => {
+        if (!detailsForm.destination) return;
+        // Petit indicateur de chargement pourrait être ajouté ici
+        const newDesc = await generateTripDescription(detailsForm.destination, trip.budget);
+        setDetailsForm(prev => ({ ...prev, description: newDesc }));
+    };
+
+    const saveDetailsUpdate = async () => {
+        let updates = { ...detailsForm };
+
+        // Si la destination a changé, on met à jour l'image et l'IA
+        if (detailsForm.destination !== trip.destination) {
+            updates.coverImage = `https://loremflickr.com/640/480/${detailsForm.destination},city`;
+
+            try {
+                const newDesc = await generateTripDescription(detailsForm.destination, trip.budget);
+                updates.description = newDesc;
+            } catch (error) {
+                console.error("AI Update Failed", error);
+            }
+        }
+
         dispatch(updateTrip({
             id: trip.id,
-            ...detailsForm
+            ...updates
         }));
         setIsEditingDetails(false);
     };
@@ -197,63 +235,83 @@ const TripDetail = () => {
 
                 {/* Edit Details Modal */}
                 {isEditingDetails && (
-                    <div className="absolute inset-x-0 top-0 z-50 bg-slate-900 p-8 border-b border-white/10 shadow-2xl">
-                        <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                            <FaEdit className="text-accent" /> Modifier les informations
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                            <div className="space-y-2">
-                                <label className="text-sm text-text-dim">Destination</label>
-                                <div className="relative">
-                                    <FaMapMarkerAlt className="absolute left-3 top-3 text-slate-400" />
-                                    <input
-                                        type="text"
-                                        value={detailsForm.destination}
-                                        onChange={(e) => setDetailsForm({ ...detailsForm, destination: e.target.value })}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 pl-10 pr-4 text-white focus:ring-2 focus:ring-accent outline-none"
-                                    />
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                        <div className="bg-slate-900 w-full max-w-2xl rounded-2xl border border-white/10 shadow-2xl flex flex-col max-h-[90vh]">
+                            <div className="p-6 border-b border-white/10 flex justify-between items-center">
+                                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                    <FaEdit className="text-accent" /> Modifier les informations
+                                </h3>
+                                <button onClick={() => setIsEditingDetails(false)} className="text-text-dim hover:text-white">
+                                    <FaTimes />
+                                </button>
+                            </div>
+
+                            <div className="p-6 overflow-y-auto custom-scrollbar space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-sm text-text-dim">Destination</label>
+                                        <div className="relative">
+                                            <FaMapMarkerAlt className="absolute left-3 top-3 text-slate-400" />
+                                            <input
+                                                type="text"
+                                                value={detailsForm.destination}
+                                                onChange={(e) => setDetailsForm({ ...detailsForm, destination: e.target.value })}
+                                                className="w-full bg-slate-800 border border-slate-700 rounded-lg py-2 pl-10 pr-4 text-white focus:ring-2 focus:ring-accent outline-none"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm text-text-dim">Dates</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <input
+                                                type="date"
+                                                value={detailsForm.startDate}
+                                                onChange={(e) => setDetailsForm({ ...detailsForm, startDate: e.target.value })}
+                                                className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-accent outline-none"
+                                            />
+                                            <input
+                                                type="date"
+                                                value={detailsForm.endDate}
+                                                onChange={(e) => setDetailsForm({ ...detailsForm, endDate: e.target.value })}
+                                                className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-accent outline-none"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="md:col-span-2 space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-sm text-text-dim">Description</label>
+                                            <button
+                                                onClick={handleGenerateDescription}
+                                                type="button"
+                                                className="text-xs text-accent hover:text-white flex items-center gap-1 bg-accent/10 hover:bg-accent/20 px-2 py-1 rounded transition-colors"
+                                            >
+                                                ✨ Régénérer (IA)
+                                            </button>
+                                        </div>
+                                        <textarea
+                                            rows="5"
+                                            value={detailsForm.description}
+                                            onChange={(e) => setDetailsForm({ ...detailsForm, description: e.target.value })}
+                                            className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-accent outline-none resize-none leading-relaxed"
+                                        />
+                                    </div>
                                 </div>
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-sm text-text-dim">Dates</label>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <input
-                                        type="date"
-                                        value={detailsForm.startDate}
-                                        onChange={(e) => setDetailsForm({ ...detailsForm, startDate: e.target.value })}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-accent outline-none"
-                                    />
-                                    <input
-                                        type="date"
-                                        value={detailsForm.endDate}
-                                        onChange={(e) => setDetailsForm({ ...detailsForm, endDate: e.target.value })}
-                                        className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-accent outline-none"
-                                    />
-                                </div>
+
+                            <div className="p-6 border-t border-white/10 flex gap-4 justify-end bg-slate-900 rounded-b-2xl">
+                                <button
+                                    onClick={() => setIsEditingDetails(false)}
+                                    className="px-4 py-2 text-text-dim hover:text-white transition-colors"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    onClick={saveDetailsUpdate}
+                                    className="btn-primary px-6"
+                                >
+                                    Sauvegarder
+                                </button>
                             </div>
-                            <div className="md:col-span-2 space-y-2">
-                                <label className="text-sm text-text-dim">Description</label>
-                                <textarea
-                                    rows="3"
-                                    value={detailsForm.description}
-                                    onChange={(e) => setDetailsForm({ ...detailsForm, description: e.target.value })}
-                                    className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-accent outline-none resize-none"
-                                />
-                            </div>
-                        </div>
-                        <div className="flex gap-4 justify-end">
-                            <button
-                                onClick={() => setIsEditingDetails(false)}
-                                className="px-4 py-2 text-text-dim hover:text-white transition-colors"
-                            >
-                                Annuler
-                            </button>
-                            <button
-                                onClick={saveDetailsUpdate}
-                                className="btn-primary px-6"
-                            >
-                                Sauvegarder
-                            </button>
                         </div>
                     </div>
                 )}
@@ -317,7 +375,7 @@ const TripDetail = () => {
                             <h3 className="font-semibold text-text-light mb-2 flex items-center gap-2">
                                 ✨ L'avis de l'IA
                             </h3>
-                            <p className="text-sm text-text-dim italic leading-relaxed">
+                            <p className="text-sm text-text-dim italic leading-relaxed whitespace-pre-wrap">
                                 {trip.description}
                             </p>
                         </div>

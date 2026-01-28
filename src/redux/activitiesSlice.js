@@ -84,7 +84,7 @@ const activitiesSlice = createSlice({
       })
       // Delete Cases
       .addCase(deleteActivity.fulfilled, (state, action) => {
-        state.list = state.list.filter(act => act.id !== action.payload);
+        state.list = state.list.filter(act => act.id != action.payload);
       })
       // Update Cases
       .addCase(updateActivity.fulfilled, (state, action) => {

@@ -84,7 +84,7 @@ const tripsSlice = createSlice({
             .addCase(updateTrip.fulfilled, (state, action) => {
                 const index = state.list.findIndex(t => t.id === action.payload.id);
                 if (index !== -1) {
-                    state.list[index] = action.payload;
+                    state.list[index] = { ...state.list[index], ...action.payload };
                 }
             })
             // Delete
