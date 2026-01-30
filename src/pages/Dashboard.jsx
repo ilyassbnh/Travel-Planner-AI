@@ -72,9 +72,18 @@ const Dashboard = () => {
         );
     }
 
+    // Normalize helper for robust search (ignores accents, case, and spacing)
+    const normalizeText = (text) => {
+        return text
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .trim();
+    };
+
     // Filter Logic
     const filteredTrips = list.filter(trip => {
-        const matchesSearch = trip.destination.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = normalizeText(trip.destination).includes(normalizeText(searchTerm));
 
         let matchesFilter = true;
         if (filterValue) {
