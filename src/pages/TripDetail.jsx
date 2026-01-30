@@ -42,6 +42,9 @@ const TripDetail = () => {
     const [isEditingDetails, setIsEditingDetails] = useState(false);
     const [detailsForm, setDetailsForm] = useState({ destination: '', startDate: '', endDate: '', description: '' });
 
+    // Add Activity UI State
+    const [isAddingActivity, setIsAddingActivity] = useState(false);
+
     useEffect(() => {
         if (!trip) {
             dispatch(fetchTrips());
@@ -63,6 +66,7 @@ const TripDetail = () => {
 
         dispatch(addActivity(newActivity));
         setFormData({ name: '', cost: '', category: 'Loisir' });
+        setIsAddingActivity(false); // Auto-close after add
     };
 
     const handleUpdateBudget = async () => {
@@ -426,61 +430,95 @@ const TripDetail = () => {
                         <div className="relative h-4 bg-slate-700 rounded-full overflow-hidden mb-2">
                             <motion.div
                                 initial={{ width: 0 }}
-                                animate={{ width: `${progress}% ` }}
+                                animate={{ width: `${progress}%` }}
                                 transition={{ duration: 1, ease: "easeOut" }}
-                                className={`absolute top - 0 left - 0 h - full ${remainingBudget < 0 ? 'bg-red-500' : 'bg-gradient-to-r from-green-500 to-emerald-400'} `}
+                                className={`absolute top-0 left-0 h-full ${remainingBudget < 0 ? 'bg-red-500' : 'bg-gradient-to-r from-green-500 to-emerald-400'}`}
                             />
                         </div>
                         <div className="flex justify-between text-sm">
                             <span className="text-text-dim">Dépensé: {totalSpent} €</span>
-                            <span className={`font - bold ${remainingBudget < 0 ? 'text-red-400' : 'text-green-400'} `}>
+                            <span className={`font-bold ${remainingBudget < 0 ? 'text-red-400' : 'text-green-400'}`}>
                                 Reste: {remainingBudget.toFixed(2)} €
                             </span>
                         </div>
                     </div>
-
-                    {/* Add Expense Form */}
-                    <div className="card border-accent/20 bg-slate-800/80">
-                        <h3 className="font-semibold text-text-light mb-4">➕ Ajouter une dépense</h3>
-                        <form onSubmit={handleAdd} className="space-y-4">
-                            <div>
-                                <input
-                                    type="text"
-                                    placeholder="Nom (ex: Restaurant)"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm focus:ring-2 focus:ring-accent focus:outline-none text-white"
-                                />
-                            </div>
-                            <div className="flex gap-2">
-                                <input
-                                    type="number"
-                                    placeholder="Prix (€)"
-                                    value={formData.cost}
-                                    onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
-                                    className="w-24 bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm focus:ring-2 focus:ring-accent focus:outline-none text-white"
-                                />
-                                <select
-                                    value={formData.category}
-                                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                    className="flex-1 bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm focus:ring-2 focus:ring-accent focus:outline-none text-white"
-                                >
-                                    <option value="Loisir">Loisir</option>
-                                    <option value="Nourriture">Nourriture</option>
-                                    <option value="Transport">Transport</option>
-                                    <option value="Logement">Logement</option>
-                                </select>
-                            </div>
-                            <button type="submit" className="w-full btn-primary py-2 text-sm justify-center">
-                                Ajouter
-                            </button>
-                        </form>
-                    </div>
                 </div>
+
+
 
                 {/* Right Column: Activities List */}
                 <div className="lg:col-span-2">
-                    <h2 className="text-2xl font-bold mb-6">Dépenses & Activités</h2>
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-2xl font-bold">Dépenses & Activités</h2>
+                        <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
+                            onClick={() => setIsAddingActivity(!isAddingActivity)}
+                            className={`p-3 rounded-full shadow-lg transition-colors ${isAddingActivity
+                                ? 'bg-red-500/20 text-red-400 rotate-45'
+                                : 'bg-accent text-white'
+                                }`}
+                        >
+                            <FaPlus className={`transition-transform duration-300 ${isAddingActivity ? 'rotate-45' : ''}`} />
+                        </motion.button>
+                    </div>
+
+                    <AnimatePresence>
+                        {isAddingActivity && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden mb-6"
+                            >
+                                <div className="card border-accent/20 bg-slate-800/80 p-4">
+                                    <form onSubmit={handleAdd} className="flex flex-col md:flex-row gap-3 items-end">
+                                        <div className="flex-1 w-full">
+                                            <label className="text-xs text-text-dim mb-1 block">Nom</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Ex: Restaurant..."
+                                                value={formData.name}
+                                                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-accent focus:outline-none text-white"
+                                                autoFocus
+                                            />
+
+                                        </div>
+                                        <div className="w-full md:w-24">
+                                            <label className="text-xs text-text-dim mb-1 block">Prix (€)</label>
+                                            <input
+                                                type="number"
+                                                placeholder="0.00"
+                                                value={formData.cost}
+                                                onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
+                                                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-accent focus:outline-none text-white"
+                                            />
+                                        </div>
+                                        <div className="w-full md:w-40">
+                                            <label className="text-xs text-text-dim mb-1 block">Catégorie</label>
+                                            <select
+                                                value={formData.category}
+                                                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-accent focus:outline-none text-white"
+                                            >
+                                                <option value="Loisir">Loisir</option>
+                                                <option value="Nourriture">Nourriture</option>
+                                                <option value="Transport">Transport</option>
+                                                <option value="Logement">Logement</option>
+                                            </select>
+                                        </div>
+                                        <button
+                                            type="submit"
+                                            className="w-full md:w-auto btn-primary py-2.5 px-6 justify-center"
+                                        >
+                                            <FaCheck />
+                                        </button>
+                                    </form>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
                     {activities.length === 0 ? (
                         <div className="text-center py-12 border border-dashed border-slate-700 rounded-xl bg-slate-800/30">
