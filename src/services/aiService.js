@@ -11,7 +11,7 @@ const genAI = new GoogleGenerativeAI(API_KEY);
 
 const WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
 
-export const generateTripDescription = async (destination, budget) => {
+export const generateTripDescription = async (destination, budget, generateActivities = false) => {
     try {
         console.log(`🤖 Routing request through n8n Data Enrichment webhook: ${WEBHOOK_URL}`);
 
@@ -28,7 +28,8 @@ export const generateTripDescription = async (destination, budget) => {
             body: JSON.stringify({
                 destination,
                 budget,
-                apiKey: API_KEY
+                apiKey: API_KEY,
+                action: generateActivities ? 'generate_itinerary_and_activities' : 'generate_itinerary'
             })
         });
 
@@ -39,32 +40,64 @@ export const generateTripDescription = async (destination, budget) => {
         const data = await response.json();
         console.log("RAW n8n response:", JSON.stringify(data, null, 2));
 
-        // n8n's Set node output
+        // Handle n8n output formats
+        let parsedDescription = '';
+        let parsedActivities = [];
+
         if (data && data.description) {
-            return data.description;
+            parsedDescription = data.description;
+            if (data.activities && Array.isArray(data.activities)) {
+                parsedActivities = data.activities;
+            }
         } else if (typeof data === "string") {
-            return data;
+            // Try to parse if it's a JSON string containing both
+            try {
+                const jsonObj = JSON.parse(data);
+                if (jsonObj.description) {
+                    parsedDescription = jsonObj.description;
+                    if (jsonObj.activities) parsedActivities = jsonObj.activities;
+                } else {
+                    parsedDescription = data;
+                }
+            } catch (e) {
+                parsedDescription = data;
+            }
         } else if (data && typeof data === "object") {
             // Check if n8n returned an array of items
-            if (Array.isArray(data) && data.length > 0 && data[0].description) {
-                return data[0].description;
+            if (Array.isArray(data) && data.length > 0) {
+                if (data[0].description) {
+                    parsedDescription = data[0].description;
+                    if (data[0].activities) parsedActivities = data[0].activities;
+                } else if (data[0].text) {
+                    parsedDescription = data[0].text;
+                }
+            } else if (data.content && data.content.parts && data.content.parts.length > 0 && data.content.parts[0].text) {
+                // Check if n8n returned the raw gemini data format
+                parsedDescription = data.content.parts[0].text;
+            } else {
+                console.warn("Returning raw object as string for description");
+                parsedDescription = JSON.stringify(data);
             }
-            // Check if n8n returned the raw gemini data format (current n8n Gemini node)
-            if (data.content && data.content.parts && data.content.parts.length > 0 && data.content.parts[0].text) {
-                return data.content.parts[0].text;
-            }
-            // Just return whatever stringified JSON we got as a last resort
-            console.warn("Returning raw object as string");
-            return JSON.stringify(data);
+        } else {
+            throw new Error("Format inattendu reçu de n8n");
         }
 
-        throw new Error("Format inattendu reçu de n8n");
+        return {
+            description: parsedDescription,
+            activities: parsedActivities
+        };
 
     } catch (error) {
         console.error("Erreur avec l'intégration n8n:", error);
         console.warn("⚠️ Passage en mode Simulation (Fallback).");
 
         // Fallback simulation text
-        return `(Mode Hors-Ligne/Erreur) Préparez-vous à découvrir ${destination} ! Cette destination offre un mélange parfait de culture et de détente. Avec votre budget de ${budget}€, vous pourrez profiter des spécialités locales et des points de vue panoramiques. Ce voyage promet d'être inoubliable !`;
+        return {
+            description: `(Mode Hors-Ligne/Erreur) Préparez-vous à découvrir ${destination} ! Cette destination offre un mélange parfait de culture et de détente. Avec votre budget de ${budget}€, vous pourrez profiter des spécialités locales et des points de vue panoramiques. Ce voyage promet d'être inoubliable !`,
+            activities: generateActivities ? [
+                { name: "Balade au centre-ville", cost: 0, category: "Loisir" },
+                { name: "Dîner typique", cost: budget * 0.1, category: "Restauration" }
+            ] : []
+        };
     }
 };

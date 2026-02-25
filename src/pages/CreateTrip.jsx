@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { addTrip } from '../redux/tripsSlice';
+import { addActivity } from '../redux/activitiesSlice';
 import { generateTripDescription } from '../services/aiService';
 
 import { motion } from 'framer-motion';
@@ -23,6 +24,7 @@ const CreateTrip = () => {
         coverImage: '',
         description: ''
     });
+    const [generatedActivities, setGeneratedActivities] = useState([]);
 
     const handleGenerateAI = async () => {
         if (!formData.destination) {
@@ -35,8 +37,12 @@ const CreateTrip = () => {
         setPreviewMode(true);
 
         try {
-            const aiText = await generateTripDescription(formData.destination, formData.budget || 1000);
-            setFormData((prev) => ({ ...prev, description: aiText }));
+            // true signals n8n to generate activities
+            const { description, activities } = await generateTripDescription(formData.destination, formData.budget || 1000, true);
+            setFormData((prev) => ({ ...prev, description: description }));
+            if (activities && activities.length > 0) {
+                setGeneratedActivities(activities);
+            }
         } catch (error) {
             console.error(error);
             alert("Erreur lors de la génération avec l'IA");
@@ -63,7 +69,25 @@ const CreateTrip = () => {
             coverImage: finalImage
         };
 
-        dispatch(addTrip(newTrip)).then(() => {
+        dispatch(addTrip(newTrip)).then((action) => {
+            // action.payload contains the newly created trip object if the thunk was fulfilled
+            const createdTripData = action.payload;
+
+            // Dispatch activities if AI generated them
+            if (generatedActivities.length > 0 && createdTripData && createdTripData.id) {
+                generatedActivities.forEach(activity => {
+                    // Provide default formatted activity object
+                    const newActivity = {
+                        tripId: createdTripData.id,
+                        name: activity.name,
+                        cost: Number(activity.cost) || 0,
+                        category: activity.category || 'Loisir',
+                        date: new Date().toISOString()
+                    };
+                    dispatch(addActivity(newActivity));
+                })
+            }
+
             setIsSuccess(true);
             setTimeout(() => {
                 navigate('/');
