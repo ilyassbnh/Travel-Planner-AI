@@ -1,22 +1,178 @@
+import { useEffect, useState } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchActivities, addActivity, deleteActivity, updateActivity } from '../redux/activitiesSlice';
+import { fetchTrips, updateTrip, deleteTrip } from '../redux/tripsSlice';
+import { generateTripDescription } from '../services/aiService';
 import { sendTripToWebhook } from '../services/n8nService';
-import { FaPaperPlane, FaArrowLeft, FaPlus, FaMoneyBillWave, FaUtensils, FaTicketAlt, FaHotel, FaBus, FaEdit, FaTrash, FaCheck, FaTimes, FaCamera, FaCalendarAlt, FaMapMarkerAlt, FaEnvelope } from 'react-icons/fa';
-
-// ... (existing imports)
+import { motion, AnimatePresence } from 'framer-motion';
+import { FaArrowLeft, FaPlus, FaMoneyBillWave, FaUtensils, FaTicketAlt, FaHotel, FaBus, FaEdit, FaTrash, FaCheck, FaTimes, FaCamera, FaCalendarAlt, FaMapMarkerAlt, FaEnvelope } from 'react-icons/fa';
+import ImageWithFallback from '../components/ImageWithFallback';
 
 const TripDetail = () => {
-    // ... (existing state)
     const { id } = useParams();
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
-    // ... (existing state vars)
+    const [formData, setFormData] = useState({
+        name: '',
+        cost: '',
+        category: 'Loisir'
+    });
+
+    const trip = useSelector((state) =>
+        state.trips.list.find((t) => t.id === id)
+    );
+
+    const { list: activities } = useSelector((state) => state.activities);
+
+    // Budget Editing State
+    const [isEditingBudget, setIsEditingBudget] = useState(false);
+    const [budgetInput, setBudgetInput] = useState('');
+
+    // Activity Editing State
+    const [editingActivityId, setEditingActivityId] = useState(null);
+    const [editActivityForm, setEditActivityForm] = useState({ name: '', cost: '', category: '' });
+
+    // Image Editing State
+    const [isEditingImage, setIsEditingImage] = useState(false);
+    const [imageUrlInput, setImageUrlInput] = useState('');
+
+    // Trip Details Editing State
+    const [isEditingDetails, setIsEditingDetails] = useState(false);
+    const [detailsForm, setDetailsForm] = useState({ destination: '', startDate: '', endDate: '', description: '' });
+
+    // Add Activity UI State
+    const [isAddingActivity, setIsAddingActivity] = useState(false);
 
     // Email Sending State
     const [isSendingEmail, setIsSendingEmail] = useState(false);
     const [emailInput, setEmailInput] = useState('');
     const [sendingStatus, setSendingStatus] = useState('idle'); // idle, sending, success, error
 
-    // ... (existing useEffects)
+    useEffect(() => {
+        if (!trip) {
+            dispatch(fetchTrips());
+        }
+        dispatch(fetchActivities(id));
+    }, [dispatch, id, trip]);
+
+    const handleAdd = (e) => {
+        e.preventDefault();
+        if (!formData.name || !formData.cost) return;
+
+        const newActivity = {
+            tripId: id,
+            name: formData.name,
+            cost: Number(formData.cost),
+            category: formData.category,
+            date: new Date().toISOString()
+        };
+
+        dispatch(addActivity(newActivity));
+        setFormData({ name: '', cost: '', category: 'Loisir' });
+        setIsAddingActivity(false); // Auto-close after add
+    };
+
+    const handleUpdateBudget = async () => {
+        if (!budgetInput || parseFloat(budgetInput) < 0) return;
+
+        let updates = { id: trip.id, budget: parseFloat(budgetInput) };
+
+        // Optionnel : Régénérer la description si le budget change
+        try {
+            const newDesc = await generateTripDescription(trip.destination, parseFloat(budgetInput));
+            updates.description = newDesc;
+        } catch (error) {
+            console.error("AI Update Failed", error);
+        }
+
+        dispatch(updateTrip(updates));
+        setIsEditingBudget(false);
+    };
+
+    const handleUpdateImage = () => {
+        if (imageUrlInput) {
+            dispatch(updateTrip({ id: trip.id, coverImage: imageUrlInput }));
+        }
+        setIsEditingImage(false);
+    };
+
+    const handleDeleteActivity = (activityId) => {
+        if (confirm('Voulez-vous vraiment supprimer cette activité ?')) {
+            dispatch(deleteActivity(activityId))
+                .unwrap()
+                .catch((err) => {
+                    alert(`Erreur lors de la suppression : ${err}`);
+                    console.error('Delete failed:', err);
+                });
+        }
+    };
+
+    const startEditingActivity = (activity) => {
+        setEditingActivityId(activity.id);
+        setEditActivityForm({
+            name: activity.name,
+            cost: activity.cost,
+            category: activity.category
+        });
+    };
+
+    const saveActivityUpdate = () => {
+        dispatch(updateActivity({
+            id: editingActivityId,
+            ...editActivityForm,
+            cost: Number(editActivityForm.cost)
+        }));
+        setEditingActivityId(null);
+    };
+
+    const handleDeleteTrip = () => {
+        if (confirm('Êtes-vous sûr de vouloir supprimer ce voyage ? Cette action est irréversible.')) {
+            dispatch(deleteTrip(id)).then(() => {
+                navigate('/');
+            });
+        }
+    };
+
+    const openDetailsEdit = () => {
+        setDetailsForm({
+            destination: trip.destination,
+            startDate: trip.startDate ? new Date(trip.startDate).toISOString().split('T')[0] : '',
+            endDate: trip.endDate ? new Date(trip.endDate).toISOString().split('T')[0] : '',
+            description: trip.description || ''
+        });
+        setIsEditingDetails(true);
+    };
+
+    const handleGenerateDescription = async () => {
+        if (!detailsForm.destination) return;
+        // Petit indicateur de chargement pourrait être ajouté ici
+        const newDesc = await generateTripDescription(detailsForm.destination, trip.budget);
+        setDetailsForm(prev => ({ ...prev, description: newDesc }));
+    };
+
+    const saveDetailsUpdate = async () => {
+        let updates = { ...detailsForm };
+
+        // Si la destination a changé, on met à jour l'image et l'IA
+        if (detailsForm.destination !== trip.destination) {
+            updates.coverImage = `https://loremflickr.com/640/480/${detailsForm.destination},city`;
+
+            try {
+                const newDesc = await generateTripDescription(detailsForm.destination, trip.budget);
+                updates.description = newDesc;
+            } catch (error) {
+                console.error("AI Update Failed", error);
+            }
+        }
+
+        dispatch(updateTrip({
+            id: trip.id,
+            ...updates
+        }));
+        setIsEditingDetails(false);
+    };
 
     const handleSendEmail = async () => {
         if (!emailInput) return;
@@ -40,7 +196,24 @@ const TripDetail = () => {
         }
     };
 
-    // ... (existing handlers: handleAdd, handleUpdateBudget, etc)
+    if (!trip) return (
+        <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></div>
+        </div>
+    );
+
+    const totalSpent = activities.reduce((acc, curr) => acc + Number(curr.cost), 0);
+    const remainingBudget = trip.budget - totalSpent;
+    const progress = Math.min((totalSpent / trip.budget) * 100, 100);
+
+    const getCategoryIcon = (category) => {
+        switch (category) {
+            case 'Nourriture': return <FaUtensils className="text-orange-400" />;
+            case 'Transport': return <FaBus className="text-blue-400" />;
+            case 'Logement': return <FaHotel className="text-purple-400" />;
+            default: return <FaTicketAlt className="text-green-400" />;
+        }
+    };
 
     return (
         <motion.div
@@ -194,12 +367,14 @@ const TripDetail = () => {
                                         <div className="grid grid-cols-2 gap-2">
                                             <input
                                                 type="date"
+                                                min={new Date().toISOString().split('T')[0]}
                                                 value={detailsForm.startDate}
                                                 onChange={(e) => setDetailsForm({ ...detailsForm, startDate: e.target.value })}
                                                 className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-accent outline-none"
                                             />
                                             <input
                                                 type="date"
+                                                min={detailsForm.startDate || new Date().toISOString().split('T')[0]}
                                                 value={detailsForm.endDate}
                                                 onChange={(e) => setDetailsForm({ ...detailsForm, endDate: e.target.value })}
                                                 className="w-full bg-slate-800 border border-slate-700 rounded-lg p-2 text-white focus:ring-2 focus:ring-accent outline-none"
@@ -343,7 +518,7 @@ const TripDetail = () => {
                             <div className="mb-4">
                                 <input
                                     type="number"
-                                    min="0"
+                                    min="1"
                                     value={budgetInput}
                                     onChange={(e) => setBudgetInput(e.target.value)}
                                     className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-sm focus:ring-2 focus:ring-accent outline-none text-white"
@@ -414,6 +589,8 @@ const TripDetail = () => {
                                             <label className="text-xs text-text-dim mb-1 block">Prix (€)</label>
                                             <input
                                                 type="number"
+                                                min="0"
+                                                step="0.01"
                                                 placeholder="0.00"
                                                 value={formData.cost}
                                                 onChange={(e) => setFormData({ ...formData, cost: e.target.value })}
@@ -486,6 +663,8 @@ const TripDetail = () => {
                                                 <div className="md:col-span-2">
                                                     <input
                                                         type="number"
+                                                        min="0"
+                                                        step="0.01"
                                                         value={editActivityForm.cost}
                                                         onChange={(e) => setEditActivityForm({ ...editActivityForm, cost: e.target.value })}
                                                         className="w-full bg-slate-900 border border-slate-700 rounded p-2 text-sm text-white"

@@ -231,7 +231,9 @@ const Dashboard = () => {
                             initial="hidden"
                             animate="visible"
                             exit={{ opacity: 0, scale: 0.9 }}
-                            className="card group cursor-pointer h-full flex flex-col"
+                            whileHover={{ y: -8, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.3)" }}
+                            whileTap={{ scale: 0.98 }}
+                            className="card group cursor-pointer h-full flex flex-col transition-shadow"
                         >
                             {/* Image de couverture */}
                             <div className="relative h-48 -mx-6 -mt-6 mb-6 overflow-hidden rounded-t-xl">

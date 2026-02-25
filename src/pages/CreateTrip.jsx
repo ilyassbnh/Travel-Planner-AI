@@ -5,13 +5,14 @@ import { addTrip } from '../redux/tripsSlice';
 import { generateTripDescription } from '../services/aiService';
 
 import { motion } from 'framer-motion';
-import { FaPaperPlane, FaMagic, FaCalendarAlt, FaMapMarkerAlt, FaImage, FaEuroSign, FaEdit, FaEye } from 'react-icons/fa';
+import { FaPaperPlane, FaMagic, FaCalendarAlt, FaMapMarkerAlt, FaImage, FaEuroSign, FaEdit, FaEye, FaCheckCircle } from 'react-icons/fa';
 import ReactMarkdown from 'react-markdown';
 
 const CreateTrip = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isSuccess, setIsSuccess] = useState(false);
     const [previewMode, setPreviewMode] = useState(true);
 
     const [formData, setFormData] = useState({
@@ -46,9 +47,15 @@ const CreateTrip = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
+
+        if (Number(formData.budget) <= 0) {
+            alert("Le budget doit être supérieur à 0.");
+            return;
+        }
+
         const finalImage = formData.coverImage
             ? formData.coverImage
-            : `https://loremflickr.com/640/480/${formData.destination},city`;
+            : `https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=2070&auto=format&fit=crop`;
 
         const newTrip = {
             ...formData,
@@ -57,7 +64,10 @@ const CreateTrip = () => {
         };
 
         dispatch(addTrip(newTrip)).then(() => {
-            navigate('/');
+            setIsSuccess(true);
+            setTimeout(() => {
+                navigate('/');
+            }, 1200);
         });
     };
 
@@ -117,6 +127,7 @@ const CreateTrip = () => {
                                 <input
                                     type="date"
                                     required
+                                    min={new Date().toISOString().split('T')[0]}
                                     value={formData.startDate}
                                     onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                                     className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-text-light focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
@@ -130,6 +141,7 @@ const CreateTrip = () => {
                                 <input
                                     type="date"
                                     required
+                                    min={formData.startDate || new Date().toISOString().split('T')[0]}
                                     value={formData.endDate}
                                     onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                                     className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-text-light focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
@@ -146,6 +158,7 @@ const CreateTrip = () => {
                             <input
                                 type="number"
                                 required
+                                min="1"
                                 value={formData.budget}
                                 onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
                                 className="w-full bg-slate-800/50 border border-slate-700 rounded-lg py-3 pl-10 pr-4 text-text-light placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent transition-all"
@@ -232,12 +245,24 @@ const CreateTrip = () => {
 
                     <motion.button
                         type="submit"
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        className="w-full btn-primary justify-center text-lg mt-8"
+                        disabled={isSuccess}
+                        whileHover={!isSuccess ? { scale: 1.02 } : {}}
+                        whileTap={!isSuccess ? { scale: 0.98 } : {}}
+                        className={`w-full justify-center text-lg mt-8 transition-all ${isSuccess ? 'bg-emerald-600 hover:bg-emerald-600 text-white cursor-default py-3 px-6 rounded-xl font-semibold flex items-center gap-2' : 'btn-primary'}`}
                     >
-                        <FaPaperPlane />
-                        Créer le voyage
+                        {isSuccess ? (
+                            <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                className="flex items-center gap-2"
+                            >
+                                <FaCheckCircle className="text-xl" /> Voyage Créé !
+                            </motion.div>
+                        ) : (
+                            <>
+                                <FaPaperPlane /> Créer le voyage
+                            </>
+                        )}
                     </motion.button>
                 </form>
             </div>
