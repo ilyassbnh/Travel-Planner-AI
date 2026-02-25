@@ -73,7 +73,18 @@ export const generateTripDescription = async (destination, budget, generateActiv
                 }
             } else if (data.content && data.content.parts && data.content.parts.length > 0 && data.content.parts[0].text) {
                 // Check if n8n returned the raw gemini data format
-                parsedDescription = data.content.parts[0].text;
+                const rawText = data.content.parts[0].text;
+                try {
+                    const jsonObj = JSON.parse(rawText);
+                    if (jsonObj.description) {
+                        parsedDescription = jsonObj.description;
+                        if (jsonObj.activities) parsedActivities = jsonObj.activities;
+                    } else {
+                        parsedDescription = rawText;
+                    }
+                } catch (e) {
+                    parsedDescription = rawText;
+                }
             } else {
                 console.warn("Returning raw object as string for description");
                 parsedDescription = JSON.stringify(data);
