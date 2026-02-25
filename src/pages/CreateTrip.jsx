@@ -5,12 +5,14 @@ import { addTrip } from '../redux/tripsSlice';
 import { generateTripDescription } from '../services/aiService';
 
 import { motion } from 'framer-motion';
-import { FaPaperPlane, FaMagic, FaCalendarAlt, FaMapMarkerAlt, FaImage, FaEuroSign } from 'react-icons/fa';
+import { FaPaperPlane, FaMagic, FaCalendarAlt, FaMapMarkerAlt, FaImage, FaEuroSign, FaEdit, FaEye } from 'react-icons/fa';
+import ReactMarkdown from 'react-markdown';
 
 const CreateTrip = () => {
     const dispatch = useDispatch();
     const navigate = useNavigate();
     const [isGenerating, setIsGenerating] = useState(false);
+    const [previewMode, setPreviewMode] = useState(true);
 
     const [formData, setFormData] = useState({
         destination: '',
@@ -28,6 +30,8 @@ const CreateTrip = () => {
         }
 
         setIsGenerating(true);
+        // Force preview mode so they see the result properly formatted once done
+        setPreviewMode(true);
 
         try {
             const aiText = await generateTripDescription(formData.destination, formData.budget || 1000);
@@ -151,42 +155,79 @@ const CreateTrip = () => {
                     </div>
 
                     {/* AI Generator */}
-                    <div className="bg-gradient-to-br from-indigo-900/30 to-purple-900/30 p-6 rounded-xl border border-indigo-500/20">
-                        <div className="flex justify-between items-center mb-4">
-                            <label className="font-semibold text-indigo-300 flex items-center gap-2">
+                    <div className="bg-gradient-to-br from-indigo-900/30 to-purple-900/30 p-1 md:p-6 rounded-xl border border-indigo-500/20">
+                        <div className="p-4 md:p-0 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                            <label className="font-semibold text-indigo-300 flex items-center gap-2 text-lg md:text-base">
                                 <FaMagic /> Description (IA Assistant)
                             </label>
-                            <motion.button
-                                type="button"
-                                onClick={handleGenerateAI}
-                                disabled={isGenerating}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors ${isGenerating
-                                    ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
-                                    : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30'
-                                    }`}
-                            >
-                                {isGenerating ? (
-                                    <>
-                                        <div className="animate-spin h-4 w-4 border-2 border-white/20 border-t-white rounded-full"></div>
-                                        Génération...
-                                    </>
-                                ) : (
-                                    <>
-                                        <span>✨ Générer avec l'IA</span>
-                                    </>
+                            <div className="flex items-center gap-3 w-full md:w-auto">
+                                {/* Toggle Preview/Edit Tabs */}
+                                {formData.description && !isGenerating && (
+                                    <div className="flex bg-slate-900/80 p-1 rounded-lg border border-slate-700/50">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPreviewMode(true)}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${previewMode ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                                        >
+                                            <FaEye /> Aperçu
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPreviewMode(false)}
+                                            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${!previewMode ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
+                                        >
+                                            <FaEdit /> Éditer
+                                        </button>
+                                    </div>
                                 )}
-                            </motion.button>
+
+                                <motion.button
+                                    type="button"
+                                    onClick={handleGenerateAI}
+                                    disabled={isGenerating}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors flex-1 justify-center md:flex-none ${isGenerating
+                                        ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+                                        : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-lg shadow-indigo-600/30'
+                                        }`}
+                                >
+                                    {isGenerating ? (
+                                        <>
+                                            <div className="animate-spin h-4 w-4 border-2 border-white/20 border-t-white rounded-full"></div>
+                                            Génération...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>✨ Auto-générer</span>
+                                        </>
+                                    )}
+                                </motion.button>
+                            </div>
                         </div>
 
-                        <textarea
-                            rows="4"
-                            value={formData.description}
-                            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                            className="w-full bg-slate-900/50 border border-slate-700/50 rounded-lg p-4 text-text-light placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all resize-none"
-                            placeholder="Laissez l'IA rédiger une description inspirante pour votre voyage..."
-                        />
+                        <div className="relative rounded-lg overflow-hidden border border-slate-700/50 bg-slate-900/50">
+                            {isGenerating ? (
+                                <div className="p-6 md:p-8 animate-pulse flex flex-col gap-3">
+                                    <div className="h-4 bg-slate-700/50 rounded w-3/4"></div>
+                                    <div className="h-4 bg-slate-700/50 rounded w-full"></div>
+                                    <div className="h-4 bg-slate-700/50 rounded w-5/6"></div>
+                                    <div className="h-4 bg-slate-700/50 rounded w-1/2"></div>
+                                </div>
+                            ) : previewMode && formData.description ? (
+                                <div className="p-4 md:p-6 prose prose-invert prose-indigo max-w-none text-text-light custom-scrollbar overflow-y-auto max-h-[400px]">
+                                    <ReactMarkdown>{formData.description}</ReactMarkdown>
+                                </div>
+                            ) : (
+                                <textarea
+                                    rows="6"
+                                    value={formData.description}
+                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                    className="w-full bg-transparent p-4 text-text-light placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all resize-y custom-scrollbar min-h-[150px]"
+                                    placeholder="Laissez l'IA rédiger une description inspirante pour votre voyage..."
+                                />
+                            )}
+                        </div>
                     </div>
 
                     <motion.button

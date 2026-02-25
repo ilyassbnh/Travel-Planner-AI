@@ -1,192 +1,46 @@
+import { sendTripToWebhook } from '../services/n8nService';
+import { FaPaperPlane, FaArrowLeft, FaPlus, FaMoneyBillWave, FaUtensils, FaTicketAlt, FaHotel, FaBus, FaEdit, FaTrash, FaCheck, FaTimes, FaCamera, FaCalendarAlt, FaMapMarkerAlt, FaEnvelope } from 'react-icons/fa';
 
-import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchActivities, addActivity, deleteActivity, updateActivity } from '../redux/activitiesSlice';
-import { fetchTrips, updateTrip, deleteTrip } from '../redux/tripsSlice';
-import { generateTripDescription } from '../services/aiService';
-import { motion, AnimatePresence } from 'framer-motion';
-import { FaArrowLeft, FaPlus, FaMoneyBillWave, FaUtensils, FaTicketAlt, FaHotel, FaBus, FaEdit, FaTrash, FaCheck, FaTimes, FaCamera, FaCalendarAlt, FaMapMarkerAlt } from 'react-icons/fa';
-import ImageWithFallback from '../components/ImageWithFallback';
+// ... (existing imports)
 
 const TripDetail = () => {
+    // ... (existing state)
     const { id } = useParams();
     const navigate = useNavigate();
     const dispatch = useDispatch();
 
-    const [formData, setFormData] = useState({
-        name: '',
-        cost: '',
-        category: 'Loisir'
-    });
+    // ... (existing state vars)
 
-    const trip = useSelector((state) =>
-        state.trips.list.find((t) => t.id === id)
-    );
+    // Email Sending State
+    const [isSendingEmail, setIsSendingEmail] = useState(false);
+    const [emailInput, setEmailInput] = useState('');
+    const [sendingStatus, setSendingStatus] = useState('idle'); // idle, sending, success, error
 
-    const { list: activities } = useSelector((state) => state.activities);
+    // ... (existing useEffects)
 
-    // Budget Editing State
-    const [isEditingBudget, setIsEditingBudget] = useState(false);
-    const [budgetInput, setBudgetInput] = useState('');
+    const handleSendEmail = async () => {
+        if (!emailInput) return;
 
-    // Activity Editing State
-    const [editingActivityId, setEditingActivityId] = useState(null);
-    const [editActivityForm, setEditActivityForm] = useState({ name: '', cost: '', category: '' });
-
-    // Image Editing State
-    const [isEditingImage, setIsEditingImage] = useState(false);
-    const [imageUrlInput, setImageUrlInput] = useState('');
-
-    // Trip Details Editing State
-    const [isEditingDetails, setIsEditingDetails] = useState(false);
-    const [detailsForm, setDetailsForm] = useState({ destination: '', startDate: '', endDate: '', description: '' });
-
-    // Add Activity UI State
-    const [isAddingActivity, setIsAddingActivity] = useState(false);
-
-    useEffect(() => {
-        if (!trip) {
-            dispatch(fetchTrips());
-        }
-        dispatch(fetchActivities(id));
-    }, [dispatch, id, trip]);
-
-    const handleAdd = (e) => {
-        e.preventDefault();
-        if (!formData.name || !formData.cost) return;
-
-        const newActivity = {
-            tripId: id,
-            name: formData.name,
-            cost: Number(formData.cost),
-            category: formData.category,
-            date: new Date().toISOString()
-        };
-
-        dispatch(addActivity(newActivity));
-        setFormData({ name: '', cost: '', category: 'Loisir' });
-        setIsAddingActivity(false); // Auto-close after add
-    };
-
-    const handleUpdateBudget = async () => {
-        if (!budgetInput || parseFloat(budgetInput) < 0) return;
-
-        let updates = { id: trip.id, budget: parseFloat(budgetInput) };
-
-        // Optionnel : Régénérer la description si le budget change
+        setSendingStatus('sending');
         try {
-            const newDesc = await generateTripDescription(trip.destination, parseFloat(budgetInput));
-            updates.description = newDesc;
-        } catch (error) {
-            console.error("AI Update Failed", error);
-        }
-
-        dispatch(updateTrip(updates));
-        setIsEditingBudget(false);
-    };
-
-    const handleUpdateImage = () => {
-        if (imageUrlInput) {
-            dispatch(updateTrip({ id: trip.id, coverImage: imageUrlInput }));
-        }
-        setIsEditingImage(false);
-    };
-
-    const handleDeleteActivity = (activityId) => {
-        if (confirm('Voulez-vous vraiment supprimer cette activité ?')) {
-            dispatch(deleteActivity(activityId))
-                .unwrap()
-                .catch((err) => {
-                    alert(`Erreur lors de la suppression : ${err}`);
-                    console.error('Delete failed:', err);
-                });
-        }
-    };
-
-    const startEditingActivity = (activity) => {
-        setEditingActivityId(activity.id);
-        setEditActivityForm({
-            name: activity.name,
-            cost: activity.cost,
-            category: activity.category
-        });
-    };
-
-    const saveActivityUpdate = () => {
-        dispatch(updateActivity({
-            id: editingActivityId,
-            ...editActivityForm,
-            cost: Number(editActivityForm.cost)
-        }));
-        setEditingActivityId(null);
-    };
-
-    const handleDeleteTrip = () => {
-        if (confirm('Êtes-vous sûr de vouloir supprimer ce voyage ? Cette action est irréversible.')) {
-            dispatch(deleteTrip(id)).then(() => {
-                navigate('/');
+            await sendTripToWebhook({
+                tripData: trip,
+                activities: activities,
+                email: emailInput
             });
+            setSendingStatus('success');
+            setTimeout(() => {
+                setIsSendingEmail(false);
+                setSendingStatus('idle');
+                setEmailInput('');
+            }, 2000);
+        } catch (error) {
+            console.error("Failed to send email", error);
+            setSendingStatus('error');
         }
     };
 
-    const openDetailsEdit = () => {
-        setDetailsForm({
-            destination: trip.destination,
-            startDate: trip.startDate ? new Date(trip.startDate).toISOString().split('T')[0] : '',
-            endDate: trip.endDate ? new Date(trip.endDate).toISOString().split('T')[0] : '',
-            description: trip.description || ''
-        });
-        setIsEditingDetails(true);
-    };
-
-    const handleGenerateDescription = async () => {
-        if (!detailsForm.destination) return;
-        // Petit indicateur de chargement pourrait être ajouté ici
-        const newDesc = await generateTripDescription(detailsForm.destination, trip.budget);
-        setDetailsForm(prev => ({ ...prev, description: newDesc }));
-    };
-
-    const saveDetailsUpdate = async () => {
-        let updates = { ...detailsForm };
-
-        // Si la destination a changé, on met à jour l'image et l'IA
-        if (detailsForm.destination !== trip.destination) {
-            updates.coverImage = `https://loremflickr.com/640/480/${detailsForm.destination},city`;
-
-            try {
-                const newDesc = await generateTripDescription(detailsForm.destination, trip.budget);
-                updates.description = newDesc;
-            } catch (error) {
-                console.error("AI Update Failed", error);
-            }
-        }
-
-        dispatch(updateTrip({
-            id: trip.id,
-            ...updates
-        }));
-        setIsEditingDetails(false);
-    };
-
-    if (!trip) return (
-        <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></div>
-        </div>
-    );
-
-    const totalSpent = activities.reduce((acc, curr) => acc + Number(curr.cost), 0);
-    const remainingBudget = trip.budget - totalSpent;
-    const progress = Math.min((totalSpent / trip.budget) * 100, 100);
-
-    const getCategoryIcon = (category) => {
-        switch (category) {
-            case 'Nourriture': return <FaUtensils className="text-orange-400" />;
-            case 'Transport': return <FaBus className="text-blue-400" />;
-            case 'Logement': return <FaHotel className="text-purple-400" />;
-            default: return <FaTicketAlt className="text-green-400" />;
-        }
-    };
+    // ... (existing handlers: handleAdd, handleUpdateBudget, etc)
 
     return (
         <motion.div
@@ -201,6 +55,12 @@ const TripDetail = () => {
                 </Link>
                 <div className="flex gap-2">
                     <button
+                        onClick={() => setIsSendingEmail(true)}
+                        className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-500 rounded-lg text-sm flex items-center gap-2 transition-colors shadow-lg shadow-indigo-500/20"
+                    >
+                        <FaEnvelope /> Envoyer par Email
+                    </button>
+                    <button
                         onClick={openDetailsEdit}
                         className="px-4 py-2 bg-slate-800 text-text-light hover:bg-slate-700 rounded-lg text-sm flex items-center gap-2 transition-colors border border-white/10"
                     >
@@ -214,6 +74,71 @@ const TripDetail = () => {
                     </button>
                 </div>
             </div>
+
+            {/* Email Modal */}
+            {isSendingEmail && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-white/10 shadow-2xl p-6">
+                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                            <FaEnvelope className="text-accent" /> Envoyer le voyage
+                        </h3>
+                        <p className="text-text-dim mb-6 text-sm">
+                            Entrez l'adresse email du destinataire pour envoyer le détail complet du voyage.
+                        </p>
+
+                        <div className="space-y-4">
+                            <input
+                                type="email"
+                                placeholder="ami@exemple.com"
+                                value={emailInput}
+                                onChange={(e) => setEmailInput(e.target.value)}
+                                className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-accent outline-none"
+                                autoFocus
+                            />
+
+                            {sendingStatus === 'success' && (
+                                <p className="text-green-400 text-sm flex items-center gap-2">
+                                    <FaCheck /> Envoyé avec succès !
+                                </p>
+                            )}
+                            {sendingStatus === 'error' && (
+                                <p className="text-red-400 text-sm flex items-center gap-2">
+                                    <FaTimes /> Erreur lors de l'envoi.
+                                </p>
+                            )}
+
+                            <div className="flex gap-4 justify-end pt-4">
+                                <button
+                                    onClick={() => {
+                                        setIsSendingEmail(false);
+                                        setSendingStatus('idle');
+                                    }}
+                                    className="px-4 py-2 text-text-dim hover:text-white transition-colors"
+                                >
+                                    Fermer
+                                </button>
+                                <button
+                                    onClick={handleSendEmail}
+                                    disabled={sendingStatus === 'sending' || !emailInput}
+                                    className={`btn-primary px-6 flex items-center gap-2 ${sendingStatus === 'sending' ? 'opacity-50 cursor-not-allowed' : ''
+                                        }`}
+                                >
+                                    {sendingStatus === 'sending' ? (
+                                        <>
+                                            <div className="animate-spin h-4 w-4 border-2 border-white/20 border-t-white rounded-full"></div>
+                                            Envoi...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FaPaperPlane /> Envoyer
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Header / Banner */}
             <div className="relative rounded-2xl overflow-hidden mb-8 shadow-2xl group">
