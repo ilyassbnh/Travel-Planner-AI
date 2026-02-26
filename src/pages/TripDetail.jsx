@@ -5,6 +5,7 @@ import { fetchActivities, addActivity, deleteActivity, updateActivity } from '..
 import { fetchTrips, updateTrip, deleteTrip } from '../redux/tripsSlice';
 import { generateTripDescription } from '../services/aiService';
 import { sendTripToWebhook } from '../services/n8nService';
+import { fetchCityImage } from '../services/unsplashService';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaArrowLeft, FaPlus, FaMoneyBillWave, FaUtensils, FaTicketAlt, FaHotel, FaBus, FaEdit, FaTrash, FaCheck, FaTimes, FaCamera, FaCalendarAlt, FaMapMarkerAlt, FaEnvelope } from 'react-icons/fa';
 import ImageWithFallback from '../components/ImageWithFallback';
@@ -162,9 +163,8 @@ const TripDetail = () => {
     const saveDetailsUpdate = async () => {
         let updates = { ...detailsForm };
 
-        // Si la destination a changé, on met à jour l'image et l'IA
         if (detailsForm.destination !== trip.destination) {
-            updates.coverImage = `https://loremflickr.com/640/480/${detailsForm.destination},city`;
+            updates.coverImage = await fetchCityImage(detailsForm.destination);
 
             try {
                 const aiResponse = await generateTripDescription(detailsForm.destination, trip.budget);

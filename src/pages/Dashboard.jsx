@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchTrips } from '../redux/tripsSlice';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FaPlus, FaPlane, FaCalendarAlt, FaMoneyBillWave, FaSearch, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import DatePicker from 'react-datepicker';
@@ -9,6 +9,7 @@ import "react-datepicker/dist/react-datepicker.css";
 
 const Dashboard = () => {
     const dispatch = useDispatch();
+    const navigate = useNavigate();
     const { list, status, error } = useSelector((state) => state.trips);
 
     // State for Search & Filters
@@ -81,8 +82,8 @@ const Dashboard = () => {
             .trim();
     };
 
-    // Filter Logic
-    const filteredTrips = list.filter(trip => {
+    // Filter Logic (Reversed to show newest first)
+    const filteredTrips = [...list].reverse().filter(trip => {
         const matchesSearch = normalizeText(trip.destination).includes(normalizeText(searchTerm));
 
         let matchesFilter = true;
@@ -233,38 +234,44 @@ const Dashboard = () => {
                             exit={{ opacity: 0, scale: 0.9 }}
                             whileHover={{ y: -8, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.3)" }}
                             whileTap={{ scale: 0.98 }}
+                            onClick={() => navigate(`/trip/${trip.id}`)}
                             className="card group cursor-pointer h-full flex flex-col transition-shadow"
                         >
                             {/* Image de couverture */}
-                            <div className="relative h-48 -mx-6 -mt-6 mb-6 overflow-hidden rounded-t-xl">
+                            <div className="relative h-48 -mx-6 -mt-6 mb-4 overflow-hidden rounded-t-xl">
                                 <img
                                     src={trip.coverImage || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=2070&auto=format&fit=crop'}
                                     alt={trip.destination}
                                     className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500"
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-secondary to-transparent opacity-60"></div>
-                                <div className="absolute bottom-4 left-4">
+                                <div className="absolute bottom-4 left-4 pr-4">
                                     <h3 className="text-2xl font-bold text-white drop-shadow-lg">{trip.destination}</h3>
                                 </div>
                             </div>
 
-                            <div className="space-y-4 flex-grow">
-                                <div className="flex items-center text-text-dim space-x-2">
-                                    <FaCalendarAlt className="text-accent" />
-                                    <span>{new Date(trip.startDate).toLocaleDateString()}</span>
+                            <div className="space-y-4 flex-grow flex flex-col">
+                                <div className="flex justify-between items-center text-sm font-medium">
+                                    <div className="flex items-center text-text-light space-x-2">
+                                        <FaCalendarAlt className="text-accent" />
+                                        <span>{new Date(trip.startDate).toLocaleDateString()}</span>
+                                    </div>
+                                    <div className="flex items-center text-green-400 space-x-2 bg-green-400/10 px-2 py-1 rounded">
+                                        <FaMoneyBillWave />
+                                        <span>{trip.budget} €</span>
+                                    </div>
                                 </div>
-                                <div className="flex items-center text-text-dim space-x-2">
-                                    <FaMoneyBillWave className="text-green-400" />
-                                    <span>{trip.budget} €</span>
-                                </div>
-                            </div>
 
-                            <Link
-                                to={`/trip/${trip.id}`}
-                                className="mt-6 w-full py-2 bg-slate-700/50 hover:bg-slate-700 rounded-lg text-center text-sm font-medium text-accent transition-colors flex justify-center items-center gap-2 group-hover:gap-3"
-                            >
-                                Voir le planning <span className="transition-all">→</span>
-                            </Link>
+                                {trip.description ? (
+                                    <p className="text-sm text-text-dim line-clamp-3 leading-relaxed border-t border-white/5 pt-4 mt-2">
+                                        {trip.description}
+                                    </p>
+                                ) : (
+                                    <p className="text-sm text-text-dim/50 italic border-t border-white/5 pt-4 mt-2">
+                                        Aucune description disponible pour ce voyage. Cliquez pour planifier.
+                                    </p>
+                                )}
+                            </div>
                         </motion.div>
                     ))}
                 </AnimatePresence>

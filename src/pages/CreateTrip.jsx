@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { addTrip } from '../redux/tripsSlice';
 import { addActivity } from '../redux/activitiesSlice';
 import { generateTripDescription } from '../services/aiService';
+import { fetchCityImage } from '../services/unsplashService';
 
 import { motion } from 'framer-motion';
 import { FaPaperPlane, FaMagic, FaCalendarAlt, FaMapMarkerAlt, FaImage, FaEuroSign, FaEdit, FaEye, FaCheckCircle } from 'react-icons/fa';
@@ -51,7 +52,7 @@ const CreateTrip = () => {
         }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         if (Number(formData.budget) <= 0) {
@@ -61,7 +62,7 @@ const CreateTrip = () => {
 
         const finalImage = formData.coverImage
             ? formData.coverImage
-            : `https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?q=80&w=2070&auto=format&fit=crop`;
+            : await fetchCityImage(formData.destination);
 
         const newTrip = {
             ...formData,
