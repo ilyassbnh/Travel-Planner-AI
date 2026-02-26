@@ -480,18 +480,6 @@ const TripDetail = () => {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Left Column: Budget & Info */}
                 <div className="space-y-6">
-                    {/* Description */}
-                    {trip.description && (
-                        <div className="card bg-slate-800/50 border-slate-700/50">
-                            <h3 className="font-semibold text-text-light mb-2 flex items-center gap-2">
-                                ✨ L'avis de l'IA
-                            </h3>
-                            <p className="text-sm text-text-dim italic leading-relaxed whitespace-pre-wrap">
-                                {trip.description}
-                            </p>
-                        </div>
-                    )}
-
                     {/* Budget Card */}
                     <div className="card bg-slate-800/50 border-slate-700/50">
                         <div className="flex justify-between items-center mb-4">
@@ -549,6 +537,18 @@ const TripDetail = () => {
                             </span>
                         </div>
                     </div>
+
+                    {/* Description */}
+                    {trip.description && (
+                        <div className="card bg-slate-800/50 border-slate-700/50">
+                            <h3 className="font-semibold text-text-light mb-2 flex items-center gap-2">
+                                ✨ L'avis de l'IA
+                            </h3>
+                            <p className="text-sm text-text-dim italic leading-relaxed whitespace-pre-wrap">
+                                {trip.description}
+                            </p>
+                        </div>
+                    )}
                 </div>
 
 
