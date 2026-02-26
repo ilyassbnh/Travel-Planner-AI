@@ -24,7 +24,18 @@ const TripDetail = () => {
         state.trips.list.find((t) => t.id === id)
     );
 
-    const { list: activities } = useSelector((state) => state.activities);
+    const { list: activitiesFromStore } = useSelector((state) => state.activities);
+    const [localActivities, setLocalActivities] = useState([]);
+
+    // Initialize localActivities with unique keys from the store
+    useEffect(() => {
+        if (activitiesFromStore.length > 0 && localActivities.length === 0) {
+            setLocalActivities(activitiesFromStore.map(act => ({
+                ...act,
+                id: act.id || crypto.randomUUID()
+            })));
+        }
+    }, [activitiesFromStore]);
 
     // Budget Editing State
     const [isEditingBudget, setIsEditingBudget] = useState(false);
@@ -62,6 +73,7 @@ const TripDetail = () => {
         if (!formData.name || !formData.cost) return;
 
         const newActivity = {
+            id: crypto.randomUUID(), // Local unique ID to prevent render bugs
             tripId: id,
             name: formData.name,
             cost: Number(formData.cost),
@@ -69,7 +81,7 @@ const TripDetail = () => {
             date: new Date().toISOString()
         };
 
-        dispatch(addActivity(newActivity));
+        setLocalActivities([...localActivities, newActivity]);
         setFormData({ name: '', cost: '', category: 'Loisir' });
         setIsAddingActivity(false); // Auto-close after add
     };
@@ -81,8 +93,8 @@ const TripDetail = () => {
 
         // Optionnel : Régénérer la description si le budget change
         try {
-            const newDesc = await generateTripDescription(trip.destination, parseFloat(budgetInput));
-            updates.description = newDesc;
+            const aiResponse = await generateTripDescription(trip.destination, parseFloat(budgetInput));
+            updates.description = aiResponse.description;
         } catch (error) {
             console.error("AI Update Failed", error);
         }
@@ -100,12 +112,7 @@ const TripDetail = () => {
 
     const handleDeleteActivity = (activityId) => {
         if (confirm('Voulez-vous vraiment supprimer cette activité ?')) {
-            dispatch(deleteActivity(activityId))
-                .unwrap()
-                .catch((err) => {
-                    alert(`Erreur lors de la suppression : ${err}`);
-                    console.error('Delete failed:', err);
-                });
+            setLocalActivities(localActivities.filter(act => act.id !== activityId));
         }
     };
 
@@ -119,11 +126,11 @@ const TripDetail = () => {
     };
 
     const saveActivityUpdate = () => {
-        dispatch(updateActivity({
-            id: editingActivityId,
-            ...editActivityForm,
-            cost: Number(editActivityForm.cost)
-        }));
+        setLocalActivities(localActivities.map(act =>
+            act.id === editingActivityId
+                ? { ...act, ...editActivityForm, cost: Number(editActivityForm.cost) }
+                : act
+        ));
         setEditingActivityId(null);
     };
 
@@ -148,8 +155,8 @@ const TripDetail = () => {
     const handleGenerateDescription = async () => {
         if (!detailsForm.destination) return;
         // Petit indicateur de chargement pourrait être ajouté ici
-        const newDesc = await generateTripDescription(detailsForm.destination, trip.budget);
-        setDetailsForm(prev => ({ ...prev, description: newDesc }));
+        const aiResponse = await generateTripDescription(detailsForm.destination, trip.budget);
+        setDetailsForm(prev => ({ ...prev, description: aiResponse.description }));
     };
 
     const saveDetailsUpdate = async () => {
@@ -160,8 +167,8 @@ const TripDetail = () => {
             updates.coverImage = `https://loremflickr.com/640/480/${detailsForm.destination},city`;
 
             try {
-                const newDesc = await generateTripDescription(detailsForm.destination, trip.budget);
-                updates.description = newDesc;
+                const aiResponse = await generateTripDescription(detailsForm.destination, trip.budget);
+                updates.description = aiResponse.description;
             } catch (error) {
                 console.error("AI Update Failed", error);
             }
@@ -181,7 +188,7 @@ const TripDetail = () => {
         try {
             await sendTripToWebhook({
                 tripData: trip,
-                activities: activities,
+                activities: localActivities,
                 email: emailInput
             });
             setSendingStatus('success');
@@ -202,7 +209,7 @@ const TripDetail = () => {
         </div>
     );
 
-    const totalSpent = activities.reduce((acc, curr) => acc + Number(curr.cost), 0);
+    const totalSpent = localActivities.reduce((acc, curr) => acc + Number(curr.cost), 0);
     const remainingBudget = trip.budget - totalSpent;
     const progress = Math.min((totalSpent / trip.budget) * 100, 100);
 
@@ -622,14 +629,14 @@ const TripDetail = () => {
                         )}
                     </AnimatePresence>
 
-                    {activities.length === 0 ? (
+                    {localActivities.length === 0 ? (
                         <div className="text-center py-12 border border-dashed border-slate-700 rounded-xl bg-slate-800/30">
                             <p className="text-text-dim">Aucune activité pour le moment.</p>
                         </div>
                     ) : (
                         <div className="space-y-4">
                             <AnimatePresence>
-                                {activities.map((act) => (
+                                {localActivities.map((act) => (
                                     <motion.div
                                         key={act.id}
                                         initial={{ opacity: 0, x: -20 }}

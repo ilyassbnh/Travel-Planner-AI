@@ -9,7 +9,7 @@ export const addTrip = createAsyncThunk(
             const response = await api.post('/trips', newTrip);
             return response.data;
         } catch (error) {
-            return rejectWithValue(error.response?.data || 'Erreur création');
+            return rejectWithValue(error.formattedMessage || error.response?.data || 'Erreur création');
         }
     }
 );
@@ -22,7 +22,7 @@ export const fetchTrips = createAsyncThunk(
             const response = await api.get('/trips');
             return response.data;
         } catch (error) {
-            return rejectWithValue(error.response?.data || 'Erreur chargement');
+            return rejectWithValue(error.formattedMessage || error.response?.data || 'Erreur chargement');
         }
     }
 );
@@ -35,7 +35,7 @@ export const updateTrip = createAsyncThunk(
             const response = await api.put(`/trips/${id}`, updates);
             return response.data;
         } catch (error) {
-            return rejectWithValue(error.response?.data || 'Erreur mise à jour voyage');
+            return rejectWithValue(error.formattedMessage || error.response?.data || 'Erreur mise à jour voyage');
         }
     }
 );
@@ -48,7 +48,7 @@ export const deleteTrip = createAsyncThunk(
             await api.delete(`/trips/${id}`);
             return id;
         } catch (error) {
-            return rejectWithValue(error.response?.data || 'Erreur suppression voyage');
+            return rejectWithValue(error.formattedMessage || error.response?.data || 'Erreur suppression voyage');
         }
     }
 );

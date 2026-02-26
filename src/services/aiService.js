@@ -9,7 +9,12 @@ if (!API_KEY) {
 // Keep the SDK initialized so if the project still needs it elsewhere it doesn't break
 const genAI = new GoogleGenerativeAI(API_KEY);
 
-const WEBHOOK_URL = import.meta.env.VITE_N8N_WEBHOOK_URL;
+// Use a relative path /webhook/... in development to trigger the Vite proxy
+// In production, use the full URL from environment
+const rawWebhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
+const WEBHOOK_URL = import.meta.env.DEV
+    ? new URL(rawWebhookUrl).pathname
+    : rawWebhookUrl;
 
 export const generateTripDescription = async (destination, budget, generateActivities = false) => {
     try {
@@ -73,8 +78,10 @@ export const generateTripDescription = async (destination, budget, generateActiv
                 }
             } else if (data.content && data.content.parts && data.content.parts.length > 0 && data.content.parts[0].text) {
                 // Check if n8n returned the raw gemini data format
-                const rawText = data.content.parts[0].text;
+                let rawText = data.content.parts[0].text;
                 try {
+                    // Clean up markdown markers just in case Gemini wrapped the JSON
+                    rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
                     const jsonObj = JSON.parse(rawText);
                     if (jsonObj.description) {
                         parsedDescription = jsonObj.description;
@@ -83,6 +90,7 @@ export const generateTripDescription = async (destination, budget, generateActiv
                         parsedDescription = rawText;
                     }
                 } catch (e) {
+                    console.error("Failed to parse inner JSON from Gemini:", e, "Raw text was:", rawText);
                     parsedDescription = rawText;
                 }
             } else {
