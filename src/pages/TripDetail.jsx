@@ -57,6 +57,11 @@ const TripDetail = () => {
 
     // Add Activity UI State
     const [isAddingActivity, setIsAddingActivity] = useState(false);
+    const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+
+    // Saving States
+    const [isSavingBudget, setIsSavingBudget] = useState(false);
+    const [isSavingDetails, setIsSavingDetails] = useState(false);
 
     // Modal States
     const [isDeleteTripModalOpen, setIsDeleteTripModalOpen] = useState(false);
@@ -89,19 +94,24 @@ const TripDetail = () => {
 
     const handleUpdateBudget = async () => {
         if (!budgetInput || parseFloat(budgetInput) < 0) return;
+        setIsSavingBudget(true);
 
-        let updates = { id: trip.id, budget: parseFloat(budgetInput) };
-
-        // Optionnel : Régénérer la description si le budget change
         try {
-            const aiResponse = await generateTripDescription(trip.destination, parseFloat(budgetInput));
-            updates.description = aiResponse.description;
-        } catch (error) {
-            console.error("AI Update Failed", error);
-        }
+            let updates = { id: trip.id, budget: parseFloat(budgetInput) };
 
-        dispatch(updateTrip(updates));
-        setIsEditingBudget(false);
+            // Optionnel : Régénérer la description si le budget change
+            try {
+                const aiResponse = await generateTripDescription(trip.destination, parseFloat(budgetInput));
+                updates.description = aiResponse.description;
+            } catch (error) {
+                console.error("AI Update Failed", error);
+            }
+
+            dispatch(updateTrip(updates));
+            setIsEditingBudget(false);
+        } finally {
+            setIsSavingBudget(false);
+        }
     };
 
     const handleUpdateImage = () => {
@@ -155,30 +165,42 @@ const TripDetail = () => {
 
     const handleGenerateDescription = async () => {
         if (!detailsForm.destination) return;
-        // Petit indicateur de chargement pourrait être ajouté ici
-        const aiResponse = await generateTripDescription(detailsForm.destination, trip.budget);
-        setDetailsForm(prev => ({ ...prev, description: aiResponse.description }));
+        setIsGeneratingDescription(true);
+        try {
+            const aiResponse = await generateTripDescription(detailsForm.destination, trip.budget);
+            setDetailsForm(prev => ({ ...prev, description: aiResponse.description }));
+        } catch (error) {
+            console.error("AI Generation Failed", error);
+            // Optionally could add toast.error here if toaster was imported
+        } finally {
+            setIsGeneratingDescription(false);
+        }
     };
 
     const saveDetailsUpdate = async () => {
-        let updates = { ...detailsForm };
+        setIsSavingDetails(true);
+        try {
+            let updates = { ...detailsForm };
 
-        if (detailsForm.destination !== trip.destination) {
-            updates.coverImage = await fetchCityImage(detailsForm.destination);
+            if (detailsForm.destination !== trip.destination) {
+                updates.coverImage = await fetchCityImage(detailsForm.destination);
 
-            try {
-                const aiResponse = await generateTripDescription(detailsForm.destination, trip.budget);
-                updates.description = aiResponse.description;
-            } catch (error) {
-                console.error("AI Update Failed", error);
+                try {
+                    const aiResponse = await generateTripDescription(detailsForm.destination, trip.budget);
+                    updates.description = aiResponse.description;
+                } catch (error) {
+                    console.error("AI Update Failed", error);
+                }
             }
-        }
 
-        dispatch(updateTrip({
-            id: trip.id,
-            ...updates
-        }));
-        setIsEditingDetails(false);
+            dispatch(updateTrip({
+                id: trip.id,
+                ...updates
+            }));
+            setIsEditingDetails(false);
+        } finally {
+            setIsSavingDetails(false);
+        }
     };
 
 
@@ -303,18 +325,38 @@ const TripDetail = () => {
                                             <label className="text-sm text-text-dim">Description</label>
                                             <button
                                                 onClick={handleGenerateDescription}
+                                                disabled={isGeneratingDescription}
                                                 type="button"
-                                                className="text-xs text-accent hover:text-white flex items-center gap-1 bg-accent/10 hover:bg-accent/20 px-2 py-1 rounded transition-colors"
+                                                className={`text-xs flex items-center gap-2 px-3 py-1.5 rounded transition-all ${isGeneratingDescription
+                                                    ? 'text-slate-400 bg-slate-800 cursor-not-allowed'
+                                                    : 'text-accent hover:text-white bg-accent/10 hover:bg-accent/20'}`}
                                             >
-                                                ✨ Régénérer (IA)
+                                                {isGeneratingDescription ? (
+                                                    <>
+                                                        <div className="animate-spin h-3 w-3 border-2 border-slate-500 border-t-slate-300 rounded-full"></div>
+                                                        Génération...
+                                                    </>
+                                                ) : (
+                                                    <>✨ Régénérer (IA)</>
+                                                )}
                                             </button>
                                         </div>
-                                        <textarea
-                                            rows="5"
-                                            value={detailsForm.description}
-                                            onChange={(e) => setDetailsForm({ ...detailsForm, description: e.target.value })}
-                                            className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-accent outline-none resize-none leading-relaxed"
-                                        />
+                                        {isGeneratingDescription ? (
+                                            <div className="w-full h-[140px] flex flex-col items-center justify-center bg-slate-800/50 rounded-lg border border-slate-700">
+                                                <div className="relative mb-2">
+                                                    <div className="absolute inset-0 bg-indigo-500/20 rounded-full blur-md animate-pulse"></div>
+                                                    <div className="w-8 h-8 border-2 border-slate-700/50 border-t-indigo-500 rounded-full animate-spin"></div>
+                                                </div>
+                                                <p className="text-xs text-indigo-300 font-medium">L'IA réécrit votre itinéraire...</p>
+                                            </div>
+                                        ) : (
+                                            <textarea
+                                                rows="5"
+                                                value={detailsForm.description}
+                                                onChange={(e) => setDetailsForm({ ...detailsForm, description: e.target.value })}
+                                                className="w-full bg-slate-800 border border-slate-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-accent outline-none resize-none leading-relaxed custom-scrollbar"
+                                            />
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -322,15 +364,24 @@ const TripDetail = () => {
                             <div className="p-6 border-t border-white/10 flex gap-4 justify-end bg-slate-900 rounded-b-2xl">
                                 <button
                                     onClick={() => setIsEditingDetails(false)}
-                                    className="px-4 py-2 text-text-dim hover:text-white transition-colors"
+                                    disabled={isGeneratingDescription || isSavingDetails}
+                                    className="px-4 py-2 text-text-dim hover:text-white transition-colors disabled:opacity-50"
                                 >
                                     Annuler
                                 </button>
                                 <button
                                     onClick={saveDetailsUpdate}
-                                    className="btn-primary px-6"
+                                    disabled={isGeneratingDescription || isSavingDetails}
+                                    className="btn-primary px-6 flex items-center justify-center min-w-[140px]"
                                 >
-                                    Sauvegarder
+                                    {isSavingDetails ? (
+                                        <>
+                                            <div className="animate-spin h-4 w-4 border-2 border-white/20 border-t-white rounded-full mr-2"></div>
+                                            Mise à jour...
+                                        </>
+                                    ) : (
+                                        "Sauvegarder"
+                                    )}
                                 </button>
                             </div>
                         </div>
@@ -407,6 +458,8 @@ const TripDetail = () => {
                                 >
                                     <FaEdit />
                                 </button>
+                            ) : isSavingBudget ? (
+                                <div className="animate-spin h-4 w-4 border-2 border-green-500/20 border-t-green-500 rounded-full"></div>
                             ) : (
                                 <div className="flex gap-2">
                                     <button onClick={handleUpdateBudget} className="text-green-400 hover:text-green-300">

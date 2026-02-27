@@ -247,11 +247,19 @@ const CreateTrip = () => {
 
                         <div className="relative rounded-lg overflow-hidden border border-slate-700/50 bg-slate-900/50">
                             {isGenerating ? (
-                                <div className="p-6 md:p-8 animate-pulse flex flex-col gap-3">
-                                    <div className="h-4 bg-slate-700/50 rounded w-3/4"></div>
-                                    <div className="h-4 bg-slate-700/50 rounded w-full"></div>
-                                    <div className="h-4 bg-slate-700/50 rounded w-5/6"></div>
-                                    <div className="h-4 bg-slate-700/50 rounded w-1/2"></div>
+                                <div className="p-12 flex flex-col items-center justify-center text-center gap-6 bg-slate-900/30">
+                                    <div className="relative">
+                                        <div className="absolute inset-0 bg-indigo-500/20 rounded-full blur-xl animate-pulse"></div>
+                                        <div className="w-16 h-16 border-4 border-slate-700/50 border-t-indigo-500 rounded-full animate-spin"></div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <p className="text-lg font-medium text-indigo-300">
+                                            L'IA explore les possibilités...
+                                        </p>
+                                        <p className="text-sm text-slate-400 animate-pulse">
+                                            Création de votre itinéraire sur-mesure ! ✨
+                                        </p>
+                                    </div>
                                 </div>
                             ) : previewMode && formData.description ? (
                                 <div className="p-4 md:p-6 prose prose-invert prose-indigo max-w-none text-text-light custom-scrollbar overflow-y-auto max-h-[400px]">
