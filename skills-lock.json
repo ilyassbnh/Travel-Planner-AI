@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "gsap-awwwards-website": {
+      "source": "eng0ai/eng0-template-skills",
+      "sourceType": "github",
+      "computedHash": "643ca04b17786edb2467e36bef608d156ca1bf5f8b5c5e712cc57987c6bdc60e"
+    },
     "vercel-react-best-practices": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",
