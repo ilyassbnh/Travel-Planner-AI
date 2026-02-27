@@ -8,12 +8,16 @@
  * @returns {Promise<void>}
  */
 export const sendTripToWebhook = async ({ tripData, activities, email }) => {
-    const webhookUrl = import.meta.env.VITE_N8N_WEBHOOK_URL;
+    const rawWebhookUrl = import.meta.env.VITE_N8N_EMAIL_WEBHOOK_URL;
 
-    if (!webhookUrl) {
-        console.warn('n8n Webhook URL is not defined in .env');
+    if (!rawWebhookUrl) {
+        console.warn('n8n Email Webhook URL is not defined in .env');
         return;
     }
+
+    const webhookUrl = import.meta.env.DEV
+        ? new URL(rawWebhookUrl).pathname
+        : rawWebhookUrl;
 
     try {
         const response = await fetch(webhookUrl, {

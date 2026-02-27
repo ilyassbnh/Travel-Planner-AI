@@ -6,8 +6,9 @@ import { fetchTrips, updateTrip, deleteTrip } from '../redux/tripsSlice';
 import { generateTripDescription } from '../services/aiService';
 import { sendTripToWebhook } from '../services/n8nService';
 import { fetchCityImage } from '../services/unsplashService';
+import { supabase } from '../services/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaArrowLeft, FaPlus, FaMoneyBillWave, FaUtensils, FaTicketAlt, FaHotel, FaBus, FaEdit, FaTrash, FaCheck, FaTimes, FaCamera, FaCalendarAlt, FaMapMarkerAlt, FaEnvelope } from 'react-icons/fa';
+import { FaArrowLeft, FaPlus, FaMoneyBillWave, FaUtensils, FaTicketAlt, FaHotel, FaBus, FaEdit, FaTrash, FaCheck, FaTimes, FaCamera, FaCalendarAlt, FaMapMarkerAlt, FaEnvelope, FaSpinner } from 'react-icons/fa';
 import ImageWithFallback from '../components/ImageWithFallback';
 
 const TripDetail = () => {
@@ -58,8 +59,6 @@ const TripDetail = () => {
     const [isAddingActivity, setIsAddingActivity] = useState(false);
 
     // Email Sending State
-    const [isSendingEmail, setIsSendingEmail] = useState(false);
-    const [emailInput, setEmailInput] = useState('');
     const [sendingStatus, setSendingStatus] = useState('idle'); // idle, sending, success, error
 
     useEffect(() => {
@@ -182,24 +181,26 @@ const TripDetail = () => {
     };
 
     const handleSendEmail = async () => {
-        if (!emailInput) return;
-
         setSendingStatus('sending');
         try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Utilisateur non connecté");
+
             await sendTripToWebhook({
                 tripData: trip,
                 activities: localActivities,
-                email: emailInput
+                email: user.email
             });
             setSendingStatus('success');
             setTimeout(() => {
-                setIsSendingEmail(false);
                 setSendingStatus('idle');
-                setEmailInput('');
-            }, 2000);
+            }, 3000);
         } catch (error) {
             console.error("Failed to send email", error);
             setSendingStatus('error');
+            setTimeout(() => {
+                setSendingStatus('idle');
+            }, 3000);
         }
     };
 
@@ -235,10 +236,12 @@ const TripDetail = () => {
                 </Link>
                 <div className="flex gap-2">
                     <button
-                        onClick={() => setIsSendingEmail(true)}
-                        className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-500 rounded-lg text-sm flex items-center gap-2 transition-colors shadow-lg shadow-indigo-500/20"
+                        onClick={handleSendEmail}
+                        disabled={sendingStatus === 'sending'}
+                        className={`px-4 py-2 text-white rounded-lg text-sm flex items-center gap-2 transition-colors shadow-lg shadow-indigo-500/20 ${sendingStatus === 'success' ? 'bg-green-600 hover:bg-green-500' : sendingStatus === 'error' ? 'bg-red-600 hover:bg-red-500' : 'bg-indigo-600 hover:bg-indigo-500'}`}
                     >
-                        <FaEnvelope /> Envoyer par Email
+                        {sendingStatus === 'sending' ? <FaSpinner className="animate-spin" /> : sendingStatus === 'success' ? <FaCheck /> : sendingStatus === 'error' ? <FaTimes /> : <FaEnvelope />}
+                        {sendingStatus === 'sending' ? 'Envoi...' : sendingStatus === 'success' ? 'Envoyé !' : sendingStatus === 'error' ? 'Erreur' : 'Envoyer par Email'}
                     </button>
                     <button
                         onClick={openDetailsEdit}
@@ -255,70 +258,6 @@ const TripDetail = () => {
                 </div>
             </div>
 
-            {/* Email Modal */}
-            {isSendingEmail && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="bg-slate-900 w-full max-w-md rounded-2xl border border-white/10 shadow-2xl p-6">
-                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                            <FaEnvelope className="text-accent" /> Envoyer le voyage
-                        </h3>
-                        <p className="text-text-dim mb-6 text-sm">
-                            Entrez l'adresse email du destinataire pour envoyer le détail complet du voyage.
-                        </p>
-
-                        <div className="space-y-4">
-                            <input
-                                type="email"
-                                placeholder="ami@exemple.com"
-                                value={emailInput}
-                                onChange={(e) => setEmailInput(e.target.value)}
-                                className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-white focus:ring-2 focus:ring-accent outline-none"
-                                autoFocus
-                            />
-
-                            {sendingStatus === 'success' && (
-                                <p className="text-green-400 text-sm flex items-center gap-2">
-                                    <FaCheck /> Envoyé avec succès !
-                                </p>
-                            )}
-                            {sendingStatus === 'error' && (
-                                <p className="text-red-400 text-sm flex items-center gap-2">
-                                    <FaTimes /> Erreur lors de l'envoi.
-                                </p>
-                            )}
-
-                            <div className="flex gap-4 justify-end pt-4">
-                                <button
-                                    onClick={() => {
-                                        setIsSendingEmail(false);
-                                        setSendingStatus('idle');
-                                    }}
-                                    className="px-4 py-2 text-text-dim hover:text-white transition-colors"
-                                >
-                                    Fermer
-                                </button>
-                                <button
-                                    onClick={handleSendEmail}
-                                    disabled={sendingStatus === 'sending' || !emailInput}
-                                    className={`btn-primary px-6 flex items-center gap-2 ${sendingStatus === 'sending' ? 'opacity-50 cursor-not-allowed' : ''
-                                        }`}
-                                >
-                                    {sendingStatus === 'sending' ? (
-                                        <>
-                                            <div className="animate-spin h-4 w-4 border-2 border-white/20 border-t-white rounded-full"></div>
-                                            Envoi...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <FaPaperPlane /> Envoyer
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Header / Banner */}
             <div className="relative rounded-2xl overflow-hidden mb-8 shadow-2xl group">

@@ -1,11 +1,24 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { supabase } from './services/supabaseClient';
 import Dashboard from './pages/Dashboard';
 import TripDetail from './pages/TripDetail';
 import CreateTrip from './pages/CreateTrip';
+import Auth from './pages/Auth';
 import { AnimatePresence, motion } from 'framer-motion';
+import { FaSignOutAlt } from 'react-icons/fa';
 
-function AnimatedRoutes() {
+function AnimatedRoutes({ session }) {
   const location = useLocation();
+
+  if (!session) {
+    return (
+      <AnimatePresence mode='wait'>
+        <Auth key="auth" />
+      </AnimatePresence>
+    );
+  }
+
   return (
     <AnimatePresence mode='wait'>
       <Routes location={location} key={location.pathname}>
@@ -18,6 +31,26 @@ function AnimatedRoutes() {
 }
 
 function App() {
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
   return (
     <Router>
       <div className="min-h-screen relative overflow-hidden text-text-light selection:bg-accent selection:text-white">
@@ -31,11 +64,26 @@ function App() {
           <h1 className="text-2xl font-bold bg-gradient-to-r from-sky-400 to-blue-600 bg-clip-text text-transparent">
             TravelAI
           </h1>
-          {/* Add navigation links here if needed */}
+
+          {session && (
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-text-dim hidden sm:inline-block">
+                {session.user.email}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors border border-red-500/50"
+                title="Déconnexion"
+              >
+                <FaSignOutAlt />
+                <span className="hidden sm:inline-block">Déconnexion</span>
+              </button>
+            </div>
+          )}
         </nav>
 
         <main className="container mx-auto px-4 py-8">
-          <AnimatedRoutes />
+          <AnimatedRoutes session={session} />
         </main>
       </div>
     </Router>
