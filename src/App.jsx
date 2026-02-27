@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { supabase } from './services/supabaseClient';
 import Dashboard from './pages/Dashboard';
 import TripDetail from './pages/TripDetail';
 import CreateTrip from './pages/CreateTrip';
 import Auth from './pages/Auth';
+import Landing from './pages/Landing';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FaSignOutAlt } from 'react-icons/fa';
 
@@ -14,7 +15,11 @@ function AnimatedRoutes({ session }) {
   if (!session) {
     return (
       <AnimatePresence mode='wait'>
-        <Auth key="auth" />
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={<Landing />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="*" element={<Landing />} />
+        </Routes>
       </AnimatePresence>
     );
   }
@@ -22,9 +27,11 @@ function AnimatedRoutes({ session }) {
   return (
     <AnimatePresence mode='wait'>
       <Routes location={location} key={location.pathname}>
+        <Route path="/auth" element={<Navigate to="/" replace />} />
         <Route path="/" element={<Dashboard />} />
         <Route path="/create" element={<CreateTrip />} />
         <Route path="/trip/:id" element={<TripDetail />} />
+        <Route path="*" element={<Dashboard />} />
       </Routes>
     </AnimatePresence>
   );
