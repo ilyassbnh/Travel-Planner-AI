@@ -9,6 +9,7 @@ import { fetchCityImage } from '../services/unsplashService';
 import { motion } from 'framer-motion';
 import { FaPaperPlane, FaMagic, FaCalendarAlt, FaMapMarkerAlt, FaImage, FaEuroSign, FaEdit, FaEye, FaCheckCircle } from 'react-icons/fa';
 import ReactMarkdown from 'react-markdown';
+import toast from 'react-hot-toast';
 
 const CreateTrip = () => {
     const dispatch = useDispatch();
@@ -29,7 +30,7 @@ const CreateTrip = () => {
 
     const handleGenerateAI = async () => {
         if (!formData.destination) {
-            alert("Veuillez d'abord entrer une destination !");
+            toast.error("Veuillez d'abord entrer une destination !");
             return;
         }
 
@@ -46,7 +47,7 @@ const CreateTrip = () => {
             }
         } catch (error) {
             console.error(error);
-            alert("Erreur lors de la génération avec l'IA");
+            toast.error("Erreur lors de la génération avec l'IA");
         } finally {
             setIsGenerating(false);
         }
@@ -56,7 +57,7 @@ const CreateTrip = () => {
         e.preventDefault();
 
         if (Number(formData.budget) <= 0) {
-            alert("Le budget doit être supérieur à 0.");
+            toast.error("Le budget doit être supérieur à 0.");
             return;
         }
 

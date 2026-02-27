@@ -1,13 +1,3 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-
-const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-
-if (!API_KEY) {
-    console.error("ERREUR: La clé API Gemini est manquante.");
-}
-
-// Keep the SDK initialized so if the project still needs it elsewhere it doesn't break
-const genAI = new GoogleGenerativeAI(API_KEY);
 
 // Use a relative path /webhook/... in development to trigger the Vite proxy
 // In production, use the full URL from environment
@@ -33,7 +23,6 @@ export const generateTripDescription = async (destination, budget, generateActiv
             body: JSON.stringify({
                 destination,
                 budget,
-                apiKey: API_KEY,
                 action: generateActivities ? 'generate_itinerary_and_activities' : 'generate_itinerary'
             })
         });

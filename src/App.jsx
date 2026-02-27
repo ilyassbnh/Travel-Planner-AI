@@ -8,7 +8,7 @@ import Auth from './pages/Auth';
 import Landing from './pages/Landing';
 import { AnimatePresence, motion } from 'framer-motion';
 import { FaSignOutAlt } from 'react-icons/fa';
-
+import { Toaster } from 'react-hot-toast';
 function AnimatedRoutes({ session }) {
   const location = useLocation();
 
@@ -61,6 +61,7 @@ function App() {
   return (
     <Router>
       <div className="min-h-screen relative overflow-hidden text-text-light selection:bg-accent selection:text-white">
+        <Toaster position="top-center" reverseOrder={false} />
         {/* Animated Background */}
         <div className="fixed inset-0 z-[-1] pointer-events-none">
           <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-purple-500/20 rounded-full blur-[120px] animate-pulse"></div>

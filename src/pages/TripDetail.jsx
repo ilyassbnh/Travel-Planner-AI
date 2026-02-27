@@ -4,12 +4,12 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchActivities, addActivity, deleteActivity, updateActivity } from '../redux/activitiesSlice';
 import { fetchTrips, updateTrip, deleteTrip } from '../redux/tripsSlice';
 import { generateTripDescription } from '../services/aiService';
-import { sendTripToWebhook } from '../services/n8nService';
 import { fetchCityImage } from '../services/unsplashService';
 import { supabase } from '../services/supabaseClient';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FaArrowLeft, FaPlus, FaMoneyBillWave, FaUtensils, FaTicketAlt, FaHotel, FaBus, FaEdit, FaTrash, FaCheck, FaTimes, FaCamera, FaCalendarAlt, FaMapMarkerAlt, FaEnvelope, FaSpinner } from 'react-icons/fa';
+import { FaArrowLeft, FaPlus, FaMoneyBillWave, FaUtensils, FaTicketAlt, FaHotel, FaBus, FaEdit, FaTrash, FaCheck, FaTimes, FaCamera, FaCalendarAlt, FaMapMarkerAlt } from 'react-icons/fa';
 import ImageWithFallback from '../components/ImageWithFallback';
+import ConfirmModal from '../components/ConfirmModal';
 
 const TripDetail = () => {
     const { id } = useParams();
@@ -58,8 +58,9 @@ const TripDetail = () => {
     // Add Activity UI State
     const [isAddingActivity, setIsAddingActivity] = useState(false);
 
-    // Email Sending State
-    const [sendingStatus, setSendingStatus] = useState('idle'); // idle, sending, success, error
+    // Modal States
+    const [isDeleteTripModalOpen, setIsDeleteTripModalOpen] = useState(false);
+    const [activityToDelete, setActivityToDelete] = useState(null);
 
     useEffect(() => {
         if (!trip) {
@@ -110,9 +111,10 @@ const TripDetail = () => {
         setIsEditingImage(false);
     };
 
-    const handleDeleteActivity = (activityId) => {
-        if (confirm('Voulez-vous vraiment supprimer cette activité ?')) {
-            setLocalActivities(localActivities.filter(act => act.id !== activityId));
+    const confirmDeleteActivity = () => {
+        if (activityToDelete) {
+            setLocalActivities(localActivities.filter(act => act.id !== activityToDelete));
+            setActivityToDelete(null);
         }
     };
 
@@ -134,12 +136,11 @@ const TripDetail = () => {
         setEditingActivityId(null);
     };
 
-    const handleDeleteTrip = () => {
-        if (confirm('Êtes-vous sûr de vouloir supprimer ce voyage ? Cette action est irréversible.')) {
-            dispatch(deleteTrip(id)).then(() => {
-                navigate('/');
-            });
-        }
+    const confirmDeleteTrip = () => {
+        dispatch(deleteTrip(id)).then(() => {
+            navigate('/');
+        });
+        setIsDeleteTripModalOpen(false);
     };
 
     const openDetailsEdit = () => {
@@ -180,29 +181,7 @@ const TripDetail = () => {
         setIsEditingDetails(false);
     };
 
-    const handleSendEmail = async () => {
-        setSendingStatus('sending');
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error("Utilisateur non connecté");
 
-            await sendTripToWebhook({
-                tripData: trip,
-                activities: localActivities,
-                email: user.email
-            });
-            setSendingStatus('success');
-            setTimeout(() => {
-                setSendingStatus('idle');
-            }, 3000);
-        } catch (error) {
-            console.error("Failed to send email", error);
-            setSendingStatus('error');
-            setTimeout(() => {
-                setSendingStatus('idle');
-            }, 3000);
-        }
-    };
 
     if (!trip) return (
         <div className="flex justify-center items-center h-64">
@@ -236,21 +215,13 @@ const TripDetail = () => {
                 </Link>
                 <div className="flex gap-2">
                     <button
-                        onClick={handleSendEmail}
-                        disabled={sendingStatus === 'sending'}
-                        className={`px-4 py-2 text-white rounded-lg text-sm flex items-center gap-2 transition-colors shadow-lg shadow-indigo-500/20 ${sendingStatus === 'success' ? 'bg-green-600 hover:bg-green-500' : sendingStatus === 'error' ? 'bg-red-600 hover:bg-red-500' : 'bg-indigo-600 hover:bg-indigo-500'}`}
-                    >
-                        {sendingStatus === 'sending' ? <FaSpinner className="animate-spin" /> : sendingStatus === 'success' ? <FaCheck /> : sendingStatus === 'error' ? <FaTimes /> : <FaEnvelope />}
-                        {sendingStatus === 'sending' ? 'Envoi...' : sendingStatus === 'success' ? 'Envoyé !' : sendingStatus === 'error' ? 'Erreur' : 'Envoyer par Email'}
-                    </button>
-                    <button
                         onClick={openDetailsEdit}
                         className="px-4 py-2 bg-slate-800 text-text-light hover:bg-slate-700 rounded-lg text-sm flex items-center gap-2 transition-colors border border-white/10"
                     >
                         <FaEdit /> Modifier Infos
                     </button>
                     <button
-                        onClick={handleDeleteTrip}
+                        onClick={() => setIsDeleteTripModalOpen(true)}
                         className="px-4 py-2 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-lg text-sm flex items-center gap-2 transition-colors border border-red-500/20"
                     >
                         <FaTrash /> Supprimer Voyage
@@ -649,7 +620,7 @@ const TripDetail = () => {
                                                             <FaEdit />
                                                         </button>
                                                         <button
-                                                            onClick={() => handleDeleteActivity(act.id)}
+                                                            onClick={() => setActivityToDelete(act.id)}
                                                             className="p-2 text-text-dim hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
                                                             title="Supprimer"
                                                         >
@@ -666,6 +637,27 @@ const TripDetail = () => {
                     )}
                 </div>
             </div>
+
+            {/* Modals */}
+            <ConfirmModal
+                isOpen={isDeleteTripModalOpen}
+                title="Supprimer ce Voyage"
+                message="Êtes-vous sûr de vouloir supprimer ce voyage ? Toutes les activités associées seront également supprimées. Cette action est irréversible."
+                confirmText="Oui, Supprimer"
+                cancelText="Annuler"
+                onConfirm={confirmDeleteTrip}
+                onCancel={() => setIsDeleteTripModalOpen(false)}
+            />
+
+            <ConfirmModal
+                isOpen={!!activityToDelete}
+                title="Supprimer l'Activité"
+                message="Voulez-vous vraiment supprimer cette activité ? Cette action est irréversible."
+                confirmText="Oui, Supprimer"
+                cancelText="Annuler"
+                onConfirm={confirmDeleteActivity}
+                onCancel={() => setActivityToDelete(null)}
+            />
         </motion.div>
     );
 };
